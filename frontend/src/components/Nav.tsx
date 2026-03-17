@@ -8,7 +8,8 @@ const links = [
   { href: "/dashboard", label: "Dashboard", icon: "📊" },
   { href: "/history", label: "Histórico", icon: "💬" },
   { href: "/ai-logs", label: "Logs IA", icon: "🤖" },
-{ href: "/settings", label: "Configurações", icon: "⚙️" },
+  { href: "/settings", label: "Configurações", icon: "⚙️" },
+  { href: "/usuarios", label: "Usuários", icon: "👥" },
 ];
 
 export default function Nav() {

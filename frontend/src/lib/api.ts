@@ -95,3 +95,22 @@ export interface MessageListResponse {
   page: number;
   limit: number;
 }
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  nome: string | null;
+  setor: string | null;
+  perfil: string;
+  status_conta: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AdminUserCreate {
+  email: string;
+  senha: string;
+  nome: string;
+  setor: string;
+  perfil: string;
+}

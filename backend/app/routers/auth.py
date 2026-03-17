@@ -58,14 +58,26 @@ async def verify_login_token(
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
-    if user:
-        if not verify_password(body.senha, user.senha_hash):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Email ou senha invalidos",
-            )
-    else:
-        user = await auth_service.create_user(db, body.email, body.senha)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciais inválidas ou usuário não cadastrado. Solicite acesso ao administrador.",
+        )
+    if not verify_password(body.senha, user.senha_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciais inválidas ou usuário não cadastrado. Solicite acesso ao administrador.",
+        )
+    if user.status_conta == "pendente":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cadastro pendente de aprovação. Aguarde o administrador aprovar seu acesso.",
+        )
+    if user.status_conta == "inativo" or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conta desativada. Entre em contato com o administrador.",
+        )
 
     telefone = login_token.telefone
 

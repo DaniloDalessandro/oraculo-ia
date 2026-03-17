@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell.exe -Command \"cmdkey /list | Select-String 'github'\" 2>&1)",
+      "Bash(powershell.exe -Command \"\\(cmdkey /list | Select-String 'github' -Context 0,3 | Out-String\\)\" 2>&1)",
+      "Bash(powershell.exe -Command \"\n\\\\$cred = Get-StoredCredential -Target 'git:https://github.com' 2>\\\\$null\nif \\(\\\\$cred\\) { \\\\$cred.GetNetworkCredential\\(\\).Password } else { 'not found' }\n\" 2>&1)",
+      "Bash(powershell.exe -Command \"choco install gh -y --no-progress 2>&1\" 2>&1 | tail -10)",
+      "Bash(rm:*)",
+      "Bash(powershell.exe -Command \"\\(Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -notlike '*Loopback*' -and $_.InterfaceAlias -notlike '*WSL*' -and $_.InterfaceAlias -notlike '*Docker*'} | Select-Object -First 1 IPAddress\\).IPAddress\" 2>&1)",
+      "Bash(powershell.exe -Command \"Get-NetIPAddress -AddressFamily IPv4 | Where-Object { \\\\$_.PrefixOrigin -eq 'Dhcp' -or \\\\$_.PrefixOrigin -eq 'Manual' } | Select-Object IPAddress, InterfaceAlias\" 2>&1)"
+    ]
+  }
+}

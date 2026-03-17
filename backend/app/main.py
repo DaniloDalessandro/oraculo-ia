@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
 from app.redis_client import close_redis, init_redis
-from app.routers import ai_logs, auth, dashboard, health, messages, settings, webhook
+from app.routers import admin, ai_logs, auth, dashboard, health, messages, settings, webhook
 
 
 @asynccontextmanager
@@ -36,6 +36,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(webhook.router)
 app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(dashboard.router)
 app.include_router(settings.router)
 app.include_router(messages.router)

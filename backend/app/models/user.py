@@ -19,6 +19,7 @@ class User(Base):
     )
     senha_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     nome: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    setor: Mapped[str | None] = mapped_column(String(100), nullable=True)
     perfil: Mapped[str] = mapped_column(
         String(20), nullable=False, default="cliente", server_default="cliente"
     )

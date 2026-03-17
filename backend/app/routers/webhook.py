@@ -71,14 +71,14 @@ async def whatsapp_webhook(
         token = await auth_service.create_login_token(db, phone)
         await session_service.set_session_status(redis, phone, "aguardando_login")
         login_url = f"{settings.APP_URL}/login?token={token.token}"
-        reply = (
+        await send_whatsapp_message(
+            phone,
             f"👋 *Bem-vindo ao Assistente IA!*\n\n"
             f"Para começar, acesse o link abaixo para fazer seu login:\n\n"
             f"🔗 {login_url}\n\n"
-            f"⏱ Link válido por {settings.LOGIN_TOKEN_EXPIRE_MINUTES} minutos.\n\n"
-            f"_Após o login, envie qualquer mensagem para conversar com a IA._"
+            f"⏱ _Link válido por {settings.LOGIN_TOKEN_EXPIRE_MINUTES} minutos._\n\n"
+            f"_Após o login, envie qualquer mensagem para conversar com a IA._",
         )
-        await send_whatsapp_message(phone, reply)
         return {"status": "ok", "authenticated": False}
 
     # ── Busca usuário ────────────────────────────────────────────────────────
@@ -101,6 +101,12 @@ async def whatsapp_webhook(
         await session_service.set_session_status(redis, phone, "nao_autenticado")
         await message_service.log_message(db, phone, None, message_text or "", reply)
         return {"status": "ok", "session_expired": True}
+
+    # ── Conta inativa ou desativada ──────────────────────────────────────────
+    if user.status_conta != "ativo" or not user.is_active:
+        reply = "⛔ Sua conta não está ativa. Entre em contato com o administrador."
+        await send_whatsapp_message(phone, reply)
+        return {"status": "ok", "account_inactive": True}
 
     config = await config_service.get_or_create_config(db, user.id)
     text = (message_text or "").strip()
