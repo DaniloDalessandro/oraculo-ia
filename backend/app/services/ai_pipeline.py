@@ -129,11 +129,19 @@ async def process_ai_message(
 
         sql_gerado = raw_sql
 
-        # ── 3. Valida SQL ────────────────────────────────────────────────────
+        # ── 3. Verifica se a IA sinalizou que não há dados relevantes ────────
+        if raw_sql.strip().upper() == "NO_DATA":
+            resposta_final = await _try_general_fallback(question, history_text, nome)
+            await _save_log(db, user, telefone, question, None, None,
+                            resposta_final, int(time.time() * 1000) - start_ms, None)
+            await context_service.add_to_context(redis, user_id_str, question,
+                                                  resposta_final, settings.AI_CONTEXT_SIZE)
+            return resposta_final
+
+        # ── 4. Valida SQL ────────────────────────────────────────────────────
         try:
             validated_sql = validate_and_prepare(raw_sql)
         except SQLValidationError as exc:
-            # SQL inválido: tenta resposta geral sem banco
             resposta_final = await _try_general_fallback(question, history_text, nome)
             erro = f"sql_validation: {exc}"
             await _save_log(db, user, telefone, question, sql_gerado, None,
@@ -142,7 +150,7 @@ async def process_ai_message(
                                                   resposta_final, settings.AI_CONTEXT_SIZE)
             return resposta_final
 
-        # ── 4. Executa SQL ───────────────────────────────────────────────────
+        # ── 5. Executa SQL ───────────────────────────────────────────────────
         try:
             result = await execute_safe(db, validated_sql)
         except SQLExecutionError as exc:
@@ -155,11 +163,11 @@ async def process_ai_message(
         resultado_bruto = json.dumps(result, ensure_ascii=False)
         data_text = format_result_for_prompt(result)
 
-        # ── 5. Formata resposta ──────────────────────────────────────────────
+        # ── 6. Formata resposta ──────────────────────────────────────────────
         if result["row_count"] == 0:
-            # Sem dados — pede para a IA gerar resposta amigável
-            resposta_final = await ai_service.format_response(
-                question, "Nenhum dado encontrado.", nome, nivel
+            resposta_final = (
+                f"❌ Não encontrei essa informação no banco de dados.\n\n"
+                f"_Tente reformular a pergunta ou verifique se os dados existem._"
             )
         else:
             try:
@@ -171,12 +179,12 @@ async def process_ai_message(
                 resposta_final = f"Resultado:\n{data_text}"
                 erro = f"response_format_error: {exc}"
 
-        # ── 6. Atualiza contexto ─────────────────────────────────────────────
+        # ── 7. Atualiza contexto ─────────────────────────────────────────────
         await context_service.add_to_context(
             redis, user_id_str, question, resposta_final, settings.AI_CONTEXT_SIZE
         )
 
-        # ── 7. Log de auditoria ──────────────────────────────────────────────
+        # ── 8. Log de auditoria ──────────────────────────────────────────────
         tempo_ms = int(time.time() * 1000) - start_ms
         await _save_log(
             db, user, telefone, question, sql_gerado, resultado_bruto,

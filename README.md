@@ -13,7 +13,7 @@ Chatbot corporativo SaaS integrado ao WhatsApp via Evolution API. Responde pergu
 ## Início rápido
 
 ```bash
-cp .env .env.local   # ajuste as variáveis
+cp .env.example .env   # ajuste as variáveis
 docker compose up --build
 ```
 
@@ -22,6 +22,8 @@ docker compose up --build
 | Frontend | http://localhost:3000 |
 | Backend / Swagger | http://localhost:8000/docs |
 | Flower (Celery) | http://localhost:5555 |
+| Evolution API | http://localhost:8080 |
+| Evolution Manager | http://localhost:8080/manager |
 
 ## Configuração mínima (.env)
 
@@ -42,26 +44,32 @@ docker compose exec backend python create_superuser.py
 ```
 
 ### 2. Criar instância e conectar WhatsApp
-```bash
-# Criar instância
-curl -X POST http://localhost:8080/instance/create \
-  -H "apikey: SUA_CHAVE" \
-  -H "Content-Type: application/json" \
-  -d '{"instanceName": "oraculo", "qrcode": true}'
 
-# Salvar QR code (PowerShell)
+**Opção A — Manager Web (recomendado):**
+
+Acesse http://localhost:8080/manager e faça login com a `EVOLUTION_API_KEY` do `.env`.
+Na interface, localize a instância `oraculo` e clique em **Connect** para exibir o QR Code na tela.
+
+**Opção B — PowerShell:**
+```powershell
+# Criar instância
+Invoke-RestMethod -Method Post -Uri "http://localhost:8080/instance/create" `
+  -Headers @{ "apikey"="SUA_CHAVE"; "Content-Type"="application/json" } `
+  -Body '{"instanceName": "oraculo", "qrcode": true}'
+
+# Gerar e abrir QR code
 $r = Invoke-RestMethod -Uri "http://localhost:8080/instance/connect/oraculo" -Headers @{ "apikey"="SUA_CHAVE" }
 $b = $r.qrcode.base64 -replace "data:image/png;base64,",""
-[IO.File]::WriteAllBytes("qrcode.png", [Convert]::FromBase64String($b))
+[IO.File]::WriteAllBytes("$env:USERPROFILE\qrcode.png", [Convert]::FromBase64String($b))
+Start-Process "$env:USERPROFILE\qrcode.png"
 ```
-Abra `qrcode.png` e escaneie com o WhatsApp do número que será o bot.
+Escaneie o QR code com o WhatsApp do número que será o bot.
 
 ### 3. Configurar webhook
-```bash
-curl -X POST http://localhost:8080/webhook/set/oraculo \
-  -H "apikey: SUA_CHAVE" \
-  -H "Content-Type: application/json" \
-  -d '{"url": "http://backend:8000/webhook/whatsapp", "enabled": true, "events": ["MESSAGES_UPSERT"]}'
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://localhost:8080/webhook/set/oraculo" `
+  -Headers @{ "apikey"="SUA_CHAVE"; "Content-Type"="application/json" } `
+  -Body '{"url": "http://backend:8000/webhook/whatsapp", "enabled": true, "events": ["MESSAGES_UPSERT"]}'
 ```
 
 ### 4. Rodar migrations e popular dados
@@ -88,6 +96,8 @@ oraculo-ia/
 │   │   ├── routers/      # endpoints FastAPI
 │   │   ├── services/     # lógica de negócio, IA, cache, rate limit
 │   │   ├── models/       # ORM SQLAlchemy
+│   │   ├── schemas/      # Pydantic schemas
+│   │   ├── core/         # segurança e dependências
 │   │   └── worker/       # Celery tasks
 │   └── alembic/          # migrations
 ├── frontend/src/app/     # páginas Next.js

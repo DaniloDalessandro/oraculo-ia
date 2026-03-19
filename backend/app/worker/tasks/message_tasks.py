@@ -89,6 +89,12 @@ async def _async_process(
     from app.config import settings
     from app.models.user import User
     from app.models.user_config import UserConfig
+    # Importar todos os modelos relacionados para que o SQLAlchemy configure os mappers corretamente
+    from app.models.session import Session  # noqa: F401
+    from app.models.login_token import LoginToken  # noqa: F401
+    from app.models.message import Message  # noqa: F401
+    from app.models.ai_query_log import AIQueryLog  # noqa: F401
+    from app.models.venda import Venda  # noqa: F401
     from app.services import message as message_service
     from app.services.ai_pipeline import process_ai_message
     from app.services.cache import get_cached, set_cached
@@ -134,11 +140,14 @@ async def _async_process(
                 question=text,
             )
 
-            # Armazena no cache
-            await set_cached(redis, user_id, text, reply)
+            # Armazena no cache apenas respostas válidas (não erros)
+            from app.services.ai_pipeline import _ERR_AI_FAILED, _ERR_SQL_EXEC, _ERR_TIMEOUT
+            if reply not in (_ERR_AI_FAILED, _ERR_SQL_EXEC, _ERR_TIMEOUT):
+                await set_cached(redis, user_id, text, reply)
 
-            # Envia resposta
+            # Envia resposta e registra no histórico de mensagens
             await send_whatsapp_message(phone, reply)
+            await message_service.log_message(db, phone, user.id, text, reply)
     finally:
         await redis.aclose()
         await engine.dispose()

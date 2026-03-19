@@ -15,7 +15,7 @@ from app.services import config as config_service
 from app.services import commands as commands_service
 from app.services.ai_pipeline import count_ai_today
 from app.services.rate_limiter import check_rate_limit
-from app.services.whatsapp import normalize_phone, send_whatsapp_message, send_whatsapp_list
+from app.services.whatsapp import normalize_phone, send_whatsapp_message, send_whatsapp_buttons, send_whatsapp_cta_url, send_whatsapp_list
 from app.models.user import User
 from app.models.session import Session
 from app.config import settings
@@ -43,7 +43,10 @@ def extract_phone_and_message(
     text = (
         message_obj.get("conversation")
         or message_obj.get("extendedTextMessage", {}).get("text")
+        # Resposta de lista interativa (sendList)
         or message_obj.get("listResponseMessage", {}).get("singleSelectReply", {}).get("selectedRowId")
+        # Resposta de botão nativo (sendButtons)
+        or message_obj.get("buttonsResponseMessage", {}).get("selectedButtonId")
         or ""
     )
     return phone, text
@@ -71,13 +74,17 @@ async def whatsapp_webhook(
         token = await auth_service.create_login_token(db, phone)
         await session_service.set_session_status(redis, phone, "aguardando_login")
         login_url = f"{settings.APP_URL}/login?token={token.token}"
-        await send_whatsapp_message(
-            phone,
-            f"👋 *Bem-vindo ao Assistente IA!*\n\n"
-            f"Para começar, acesse o link abaixo para fazer seu login:\n\n"
-            f"🔗 {login_url}\n\n"
-            f"⏱ _Link válido por {settings.LOGIN_TOKEN_EXPIRE_MINUTES} minutos._\n\n"
-            f"_Após o login, envie qualquer mensagem para conversar com a IA._",
+        await send_whatsapp_cta_url(
+            phone=phone,
+            body=(
+                "👋 *Bem-vindo ao Assistente IA!*\n\n"
+                "Para começar, toque no botão abaixo para fazer seu login.\n\n"
+                f"⏱ _Link válido por {settings.LOGIN_TOKEN_EXPIRE_MINUTES} minutos._\n\n"
+                "_Após o login, envie qualquer mensagem para conversar com a IA._"
+            ),
+            button_text="🔑 Fazer Login",
+            url=login_url,
+            footer="Oráculo IA",
         )
         return {"status": "ok", "authenticated": False}
 

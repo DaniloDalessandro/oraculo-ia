@@ -7,9 +7,11 @@ Duas chains principais:
 """
 
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from app.config import settings
@@ -18,65 +20,42 @@ from app.services.sql_validator import ALLOWED_TABLES
 # ── Descrição do schema para o prompt de Text-to-SQL ────────────────────────
 
 SCHEMA_DESCRIPTION = """
-Tabela: messages
-  - id (UUID): identificador único da mensagem
-  - telefone (VARCHAR): número WhatsApp do usuário (ex: 5511999887766)
-  - user_id (UUID): id do usuário autenticado (pode ser NULL)
-  - mensagem_usuario (TEXT): texto enviado pelo usuário
-  - resposta_sistema (TEXT): resposta gerada pelo sistema
-  - created_at (TIMESTAMPTZ): data e hora da mensagem
+vendas(id,data_venda,produto,categoria,quantidade,valor_unitario,valor_total,cliente,vendedor,regiao,status_pagamento,forma_pagamento,created_at)
+messages(id,telefone,user_id,mensagem_usuario,resposta_sistema,created_at)
+users(id,email,nome,perfil,status_conta,created_at)
+sessions(id,telefone,status,user_id,authenticated_at,last_activity)
+user_configs(id,user_id,bot_ativo,limite_diario,ia_ativa,nome_assistente)
+ai_query_logs(id,user_id,telefone,pergunta_original,sql_gerado,tempo_execucao_ms,erro,created_at)
 
-Tabela: sessions
-  - id (UUID): identificador único da sessão
-  - telefone (VARCHAR): número WhatsApp
-  - status (VARCHAR): 'nao_autenticado' | 'aguardando_login' | 'autenticado'
-  - user_id (UUID): id do usuário vinculado (NULL se não autenticado)
-  - authenticated_at (TIMESTAMPTZ): data/hora da autenticação
-  - last_activity (TIMESTAMPTZ): última atividade registrada
-
-Tabela: users
-  - id (UUID): identificador único
-  - email (VARCHAR): e-mail do usuário
-  - nome (VARCHAR): nome do usuário
-  - perfil (VARCHAR): 'admin' | 'operador' | 'cliente'
-  - status_conta (VARCHAR): 'ativo' | 'inativo'
-  - created_at (TIMESTAMPTZ): data de criação
-
-Tabela: user_configs
-  - id (UUID): identificador único
-  - user_id (UUID): id do usuário (1:1)
-  - bot_ativo (BOOLEAN): se o bot está habilitado
-  - limite_diario (INTEGER): máximo de mensagens por dia
-  - ia_ativa (BOOLEAN): se a IA está habilitada
-  - nome_assistente (VARCHAR): nome do assistente configurado
-
-Tabela: ai_query_logs
-  - id (UUID): identificador único
-  - user_id (UUID): id do usuário que fez a pergunta
-  - telefone (VARCHAR): número WhatsApp
-  - pergunta_original (TEXT): pergunta em linguagem natural
-  - sql_gerado (TEXT): SQL gerado pela IA
-  - tempo_execucao_ms (INTEGER): tempo de execução em milissegundos
-  - erro (TEXT): mensagem de erro (NULL se sucesso)
-  - created_at (TIMESTAMPTZ): data e hora
-
-Funções PostgreSQL úteis:
-  - NOW() → timestamp atual com timezone
-  - CURRENT_DATE → data atual
-  - DATE_TRUNC('day', campo) → trunca para o dia
-  - EXTRACT(hour FROM campo) → extrai hora
-  - AGE(timestamp) → diferença de datas
-  - TO_CHAR(campo, 'DD/MM/YYYY HH24:MI') → formata data
+vendas.status_pagamento: 'pago'|'pendente'|'cancelado'
+vendas.forma_pagamento: 'cartao'|'boleto'|'pix'
+users.perfil: 'admin'|'operador'|'cliente'
+sessions.status: 'nao_autenticado'|'aguardando_login'|'autenticado'
 """.strip()
 
 
 # ── Inicialização do LLM ─────────────────────────────────────────────────────
 
-def _build_llm(temperature: float | None = None) -> ChatOpenAI:
+def _build_llm(temperature: float | None = None) -> BaseChatModel:
+    temp = temperature if temperature is not None else settings.AI_TEMPERATURE
+    if settings.AI_PROVIDER == "groq":
+        return ChatGroq(
+            model=settings.GROQ_MODEL,
+            api_key=settings.GROQ_API_KEY,
+            temperature=temp,
+            max_tokens=settings.AI_MAX_TOKENS,
+        )
+    if settings.AI_PROVIDER == "gemini":
+        return ChatGoogleGenerativeAI(
+            model=settings.GEMINI_MODEL,
+            google_api_key=settings.GEMINI_API_KEY,
+            temperature=temp,
+            max_output_tokens=settings.AI_MAX_TOKENS,
+        )
     return ChatOpenAI(
         model=settings.OPENAI_MODEL,
         api_key=settings.OPENAI_API_KEY,
-        temperature=temperature if temperature is not None else settings.AI_TEMPERATURE,
+        temperature=temp,
         max_tokens=settings.AI_MAX_TOKENS,
     )
 
@@ -99,6 +78,7 @@ Regras OBRIGATÓRIAS:
 - Para contagens simples, use COUNT(*)
 - Para "hoje", use CURRENT_DATE ou DATE_TRUNC('day', NOW())
 - Para "esta semana", use DATE_TRUNC('week', NOW())
+- Se a pergunta NÃO for sobre dados disponíveis no schema (ex: saudações, perguntas pessoais, temas fora do sistema), retorne exatamente: NO_DATA
 
 Histórico da conversa (use para resolver referências como "esse mesmo", "ontem", "aquele"):
 {history}"""

@@ -16,7 +16,12 @@ class Settings(BaseSettings):
     EVOLUTION_INSTANCE_NAME: str = "oraculo"
     APP_URL: str = "http://localhost:3000"
 
-    # Sprint 3 — OpenAI / LangChain
+    # Sprint 3 — IA (provedor: "groq", "gemini" ou "openai")
+    AI_PROVIDER: str = "groq"
+    GROQ_API_KEY: str = "changeme"
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GEMINI_API_KEY: str = "changeme"
+    GEMINI_MODEL: str = "gemini-2.0-flash"
     OPENAI_API_KEY: str = "sk-changeme"
     OPENAI_MODEL: str = "gpt-4o-mini"
     AI_MAX_TOKENS: int = 1500

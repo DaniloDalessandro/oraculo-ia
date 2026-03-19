@@ -19,6 +19,8 @@ from app.schemas.user import (
 )
 from app.services import auth as auth_service
 from app.services import session as session_service
+from app.services import config as config_service
+from app.services.whatsapp import send_whatsapp_message
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -94,8 +96,19 @@ async def verify_login_token(
     await session_service.set_session_status(redis, telefone, "autenticado")
     await session_service.set_session_user(redis, telefone, str(user.id))
 
+    # Envia mensagem de boas-vindas no WhatsApp
+    config = await config_service.get_or_create_config(db, user.id)
+    nome_assistente = config.nome_assistente if config else "Assistente"
+    nome_usuario = user.nome or user.email
+    await send_whatsapp_message(
+        telefone,
+        f"✅ *Login realizado com sucesso!*\n\n"
+        f"Olá, *{nome_usuario}*! Sou o *{nome_assistente}* e estou pronto para responder suas perguntas.\n\n"
+        f"_Digite *menu* para ver os comandos disponíveis._",
+    )
+
     access_token = create_access_token({"sub": str(user.id)})
     return VerifyLoginTokenResponse(
         access_token=access_token,
-        message="WhatsApp vinculado com sucesso! Pode fechar esta aba.",
+        message="Login realizado com sucesso!",
     )

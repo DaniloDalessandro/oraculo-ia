@@ -7,7 +7,14 @@
       "Bash(powershell.exe -Command \"choco install gh -y --no-progress 2>&1\" 2>&1 | tail -10)",
       "Bash(rm:*)",
       "Bash(powershell.exe -Command \"\\(Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -notlike '*Loopback*' -and $_.InterfaceAlias -notlike '*WSL*' -and $_.InterfaceAlias -notlike '*Docker*'} | Select-Object -First 1 IPAddress\\).IPAddress\" 2>&1)",
-      "Bash(powershell.exe -Command \"Get-NetIPAddress -AddressFamily IPv4 | Where-Object { \\\\$_.PrefixOrigin -eq 'Dhcp' -or \\\\$_.PrefixOrigin -eq 'Manual' } | Select-Object IPAddress, InterfaceAlias\" 2>&1)"
+      "Bash(powershell.exe -Command \"Get-NetIPAddress -AddressFamily IPv4 | Where-Object { \\\\$_.PrefixOrigin -eq 'Dhcp' -or \\\\$_.PrefixOrigin -eq 'Manual' } | Select-Object IPAddress, InterfaceAlias\" 2>&1)",
+      "Bash(grep -r \"button\\\\|Button\\\\|BUTTON\" C:Usersdanilo.ecopelDocumentsPROJETOSoraculo-ia --include=*.py)",
+      "WebSearch",
+      "WebFetch(domain:doc.evolution-api.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.postman.com)",
+      "Bash(docker compose:*)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

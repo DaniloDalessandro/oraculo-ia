@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 interface ApiError {
@@ -16,8 +16,23 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [countdown, setCountdown] = useState(0);
 
   const isWhatsAppFlow = Boolean(token);
+
+  const startCloseCountdown = useCallback(() => {
+    setCountdown(3);
+  }, []);
+
+  useEffect(() => {
+    if (countdown <= 0) return;
+    if (countdown === 1) {
+      const t = setTimeout(() => window.close(), 1000);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
 
   const handleStandardLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +85,8 @@ function LoginForm() {
       }
 
       localStorage.setItem("access_token", data.access_token);
-      setSuccess(data.message || "WhatsApp vinculado com sucesso!");
+      setSuccess(data.message || "Login realizado com sucesso!");
+      startCloseCountdown();
     } catch {
       setError("Erro de conexao. Verifique sua internet.");
     } finally {
@@ -86,9 +102,23 @@ function LoginForm() {
         </div>
         <h2 className="text-xl font-semibold text-white">{success}</h2>
         {isWhatsAppFlow && (
-          <p className="text-gray-400 text-sm">
-            Voce ja pode fechar esta aba e voltar ao WhatsApp.
-          </p>
+          <>
+            <p className="text-gray-400 text-sm">
+              Volte ao WhatsApp — o assistente ja enviou uma mensagem para voce.
+            </p>
+            {countdown > 0 && (
+              <p className="text-gray-600 text-xs">
+                Esta aba sera fechada em {countdown}s...
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => window.close()}
+              className="mt-2 text-xs bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Fechar aba
+            </button>
+          </>
         )}
       </div>
     );
@@ -104,26 +134,9 @@ function LoginForm() {
         <div className="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4">
           🤖
         </div>
-        <h1 className="text-2xl font-bold text-white">
-          {isWhatsAppFlow ? "Vincular WhatsApp" : "Entrar na plataforma"}
-        </h1>
-        <p className="text-gray-400 text-sm mt-1">
-          {isWhatsAppFlow
-            ? "Faca login para ativar seu assistente"
-            : "Acesse sua conta corporativa"}
-        </p>
+        <h1 className="text-2xl font-bold text-white">Entrar na plataforma</h1>
+        <p className="text-gray-400 text-sm mt-1">Acesse sua conta corporativa</p>
       </div>
-
-      {/* Badge WhatsApp */}
-      {isWhatsAppFlow && (
-        <div className="flex items-start gap-3 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
-          <span className="text-green-400 text-lg mt-0.5">📱</span>
-          <p className="text-green-300 text-xs leading-relaxed">
-            Link de autenticacao do WhatsApp detectado. Faca login para vincular
-            seu numero.
-          </p>
-        </div>
-      )}
 
       {/* Erro */}
       {error && (
@@ -171,25 +184,21 @@ function LoginForm() {
             <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             Aguarde...
           </>
-        ) : isWhatsAppFlow ? (
-          "Vincular WhatsApp"
         ) : (
           "Entrar"
         )}
       </button>
 
-      {/* Esqueci senha */}
-      {!isWhatsAppFlow && (
-        <div className="text-center">
-          <button
-            type="button"
-            className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
-            onClick={() => alert("Funcionalidade disponivel em breve.")}
-          >
-            Esqueci minha senha
-          </button>
-        </div>
-      )}
+      {/* Recuperar senha */}
+      <div className="text-center">
+        <button
+          type="button"
+          className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+          onClick={() => alert("Funcionalidade disponivel em breve.")}
+        >
+          Recuperar senha
+        </button>
+      </div>
     </form>
   );
 }
