@@ -6,7 +6,8 @@ Retorna string de resposta ou None se não for um comando reconhecido.
 from app.models.user import User
 from app.models.user_config import UserConfig
 
-COMMANDS = {"menu", "ajuda", "help", "status", "config", "/menu", "/ajuda", "/status", "/config"}
+COMMANDS = {"menu", "ajuda", "help", "status", "config", "sair", "logout", "exit",
+            "/menu", "/ajuda", "/status", "/config", "/sair", "/logout", "/exit"}
 
 
 def is_command(text: str) -> bool:
@@ -47,6 +48,9 @@ async def handle_command(
             f"🤖 Bot ativo: {'✅ Sim' if (config and config.bot_ativo) else '❌ Não'}\n"
             f"🧠 IA ativa: {'✅ Sim' if (config and config.ia_ativa) else '❌ Não'}"
         )
+
+    if cmd in ("sair", "logout", "exit"):
+        return "__LOGOUT__"
 
     if cmd == "config":
         if not config:

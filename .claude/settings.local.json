@@ -14,7 +14,11 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.postman.com)",
       "Bash(docker compose:*)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(npx shadcn@latest init -d)",
+      "Bash(npx shadcn@latest add card badge separator skeleton progress --overwrite)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)"
     ]
   }
 }

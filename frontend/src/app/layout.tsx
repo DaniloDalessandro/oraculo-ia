@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
   title: "Oraculo IA",
@@ -12,8 +16,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR">
-      <body className="min-h-screen bg-[#0f0f0f] text-white antialiased">
+    <html lang="pt-BR" className={cn("dark font-sans", geist.variable)}>
+      <body className="min-h-screen antialiased">
         {children}
       </body>
     </html>

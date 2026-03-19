@@ -39,7 +39,7 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
     senha: "",
     nome: "",
     setor: "",
-    perfil: "cliente",
+    perfil: "colaborador",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -139,8 +139,8 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
               onChange={handleChange}
               className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
             >
-              <option value="cliente">Cliente</option>
-              <option value="admin">Admin</option>
+              <option value="colaborador">Colaborador</option>
+              <option value="administrador">Administrador</option>
             </select>
           </div>
 
@@ -241,7 +241,7 @@ export default function UsuariosPage() {
   return (
     <div className="min-h-screen bg-[#0f0f0f]">
       <Nav />
-      <main className="pt-14 px-6 max-w-6xl mx-auto py-8">
+      <main className="pt-14 px-6 max-w-7xl mx-auto py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -324,9 +324,9 @@ export default function UsuariosPage() {
                           </td>
                           <td className="px-5 py-4">
                             <span className={`text-xs font-medium ${
-                              user.perfil === "admin" ? "text-purple-400" : "text-gray-400"
+                              user.perfil === "administrador" ? "text-purple-400" : "text-blue-400"
                             }`}>
-                              {user.perfil === "admin" ? "Admin" : "Cliente"}
+                              {user.perfil === "administrador" ? "Administrador" : "Colaborador"}
                             </span>
                           </td>
                           <td className="px-5 py-4">

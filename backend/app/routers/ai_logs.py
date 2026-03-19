@@ -3,8 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel
 from datetime import datetime
+from uuid import UUID
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_administrador as get_current_user
 from app.database import get_db
 from app.models.ai_query_log import AIQueryLog
 from app.models.user import User
@@ -13,8 +14,8 @@ router = APIRouter(prefix="/ai-logs", tags=["AI Logs"])
 
 
 class AILogOut(BaseModel):
-    id: str
-    user_id: str | None
+    id: UUID
+    user_id: UUID | None
     telefone: str
     pergunta_original: str
     sql_gerado: str | None

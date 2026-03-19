@@ -79,7 +79,7 @@ export default function HistoryPage() {
   return (
     <div className="min-h-screen bg-[#0f0f0f]">
       <Nav />
-      <main className="pt-14 px-6 max-w-5xl mx-auto py-8">
+      <main className="pt-14 px-6 max-w-7xl mx-auto py-8">
         {/* Header */}
         <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
           <div>
@@ -134,7 +134,7 @@ export default function HistoryPage() {
           ) : (
             <div className="divide-y divide-[#1e1e1e]">
               {/* Header row */}
-              <div className="grid grid-cols-[140px_1fr_1fr_100px] gap-4 px-6 py-3 text-xs text-gray-600 uppercase tracking-wide">
+              <div className="grid grid-cols-[160px_1fr_1fr_120px] gap-4 px-6 py-3 text-xs text-gray-600 uppercase tracking-wide">
                 <span>Telefone</span>
                 <span>Mensagem</span>
                 <span>Resposta</span>
@@ -147,7 +147,7 @@ export default function HistoryPage() {
                     onClick={() =>
                       setExpanded(expanded === item.id ? null : item.id)
                     }
-                    className="w-full grid grid-cols-[140px_1fr_1fr_100px] gap-4 px-6 py-4 text-left hover:bg-white/5 transition-colors"
+                    className="w-full grid grid-cols-[160px_1fr_1fr_120px] gap-4 px-6 py-4 text-left hover:bg-white/5 transition-colors"
                   >
                     <span className="text-xs font-mono text-blue-400 truncate">
                       {formatPhone(item.telefone)}

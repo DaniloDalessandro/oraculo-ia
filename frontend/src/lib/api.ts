@@ -28,6 +28,11 @@ export async function apiFetch<T>(
     throw new Error("Unauthorized");
   }
 
+  if (res.status === 403) {
+    window.location.href = "/acesso-negado";
+    throw new Error("Forbidden");
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { detail?: string }).detail || `HTTP ${res.status}`);

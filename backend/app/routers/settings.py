@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_administrador as get_current_user
 from app.database import get_db
 from app.models.user import User
 from app.models.session import Session, SessionStatus

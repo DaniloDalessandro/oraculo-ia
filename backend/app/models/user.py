@@ -21,7 +21,7 @@ class User(Base):
     nome: Mapped[str | None] = mapped_column(String(100), nullable=True)
     setor: Mapped[str | None] = mapped_column(String(100), nullable=True)
     perfil: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="cliente", server_default="cliente"
+        String(20), nullable=False, default="colaborador", server_default="colaborador"
     )
     status_conta: Mapped[str] = mapped_column(
         String(20), nullable=False, default="ativo", server_default="ativo"

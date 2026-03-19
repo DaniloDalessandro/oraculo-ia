@@ -41,7 +41,14 @@ class AdminUserCreate(BaseModel):
     senha: str
     nome: str
     setor: str
-    perfil: str = "cliente"
+    perfil: str = "colaborador"
+
+    @field_validator("perfil")
+    @classmethod
+    def perfil_valido(cls, v: str) -> str:
+        if v not in ("administrador", "colaborador"):
+            raise ValueError("Perfil deve ser 'administrador' ou 'colaborador'")
+        return v
 
 
 class AdminUserOut(BaseModel):

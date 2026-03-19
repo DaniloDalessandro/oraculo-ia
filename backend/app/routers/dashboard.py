@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 import redis.asyncio as aioredis
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_administrador
 from app.database import get_db
 from app.redis_client import get_redis
 from app.models.user import User
@@ -46,7 +46,7 @@ def _count_active_workers() -> int:
 async def get_stats(
     db: AsyncSession = Depends(get_db),
     redis: aioredis.Redis = Depends(get_redis),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_administrador),
 ):
     total_mensagens = await message_service.get_total(db)
     mensagens_hoje = await message_service.get_today_total(db)

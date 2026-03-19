@@ -1,11 +1,12 @@
 from datetime import datetime
+from uuid import UUID
 from pydantic import BaseModel
 
 
 class MessageOut(BaseModel):
-    id: str
+    id: UUID
     telefone: str
-    user_id: str | None
+    user_id: UUID | None
     mensagem_usuario: str
     resposta_sistema: str
     created_at: datetime

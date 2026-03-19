@@ -16,6 +16,7 @@ from app.services import commands as commands_service
 from app.services.ai_pipeline import count_ai_today
 from app.services.rate_limiter import check_rate_limit
 from app.services.whatsapp import normalize_phone, send_whatsapp_message, send_whatsapp_buttons, send_whatsapp_cta_url, send_whatsapp_list
+from app.services.session import clear_session
 from app.models.user import User
 from app.models.session import Session
 from app.config import settings
@@ -140,6 +141,17 @@ async def whatsapp_webhook(
     # ── Comandos pré-definidos ───────────────────────────────────────────────
     if commands_service.is_command(text):
         reply = await commands_service.handle_command(text, user, config, mensagens_hoje)
+        if reply == "__LOGOUT__":
+            await clear_session(redis, phone)
+            nome = config.nome_assistente if config else "Assistente"
+            msg = (
+                f"👋 Até logo! Você foi desconectado do *{nome}*.\n\n"
+                "_Envie qualquer mensagem quando quiser se reconectar._"
+            )
+            await send_whatsapp_message(phone, msg)
+            await message_service.log_message(db, phone, user.id, text, msg)
+            return {"status": "ok", "type": "logout"}
+
         if reply == "__LIST_MENU__":
             nome = config.nome_assistente if config else "Assistente"
             await send_whatsapp_list(
@@ -155,6 +167,7 @@ async def whatsapp_webhook(
                             {"title": "📊 Status", "description": "Ver seu uso do dia", "rowId": "status"},
                             {"title": "⚙️ Configurações", "description": "Ver configurações do bot", "rowId": "config"},
                             {"title": "❓ Ajuda", "description": "Como usar o sistema", "rowId": "ajuda"},
+                            {"title": "🚪 Sair", "description": "Desconectar do assistente", "rowId": "sair"},
                         ],
                     }
                 ],

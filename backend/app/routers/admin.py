@@ -12,8 +12,8 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    """Dependency that enforces admin-only access."""
-    if current_user.perfil != "admin":
+    """Dependency that enforces administrador-only access."""
+    if current_user.perfil != "administrador":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acesso restrito a administradores",

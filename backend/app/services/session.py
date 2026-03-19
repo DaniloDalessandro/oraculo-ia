@@ -19,3 +19,7 @@ async def get_session_user(redis: aioredis.Redis, phone: str) -> Optional[str]:
 
 async def set_session_user(redis: aioredis.Redis, phone: str, user_id: str) -> None:
     await redis.set(f"session:{phone}:user_id", user_id, ex=SESSION_TTL_SECONDS)
+
+
+async def clear_session(redis: aioredis.Redis, phone: str) -> None:
+    await redis.delete(f"session:{phone}:status", f"session:{phone}:user_id")

@@ -50,7 +50,7 @@ async def main():
             email=email,
             nome=nome or None,
             senha_hash=hash_password(senha),
-            perfil="admin",
+            perfil="administrador",
             status_conta="ativo",
             is_active=True,
         )

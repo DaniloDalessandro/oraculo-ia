@@ -111,150 +111,148 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-[#0f0f0f]">
       <Nav />
-      <main className="pt-14 px-6 max-w-2xl mx-auto py-8 space-y-6">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Configurações</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Personalize seu assistente e conta
-          </p>
+      <main className="pt-14 px-6 max-w-7xl mx-auto py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Configurações</h1>
+            <p className="text-gray-500 text-sm mt-1">
+              Personalize seu assistente e conta
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {saved && (
+              <span className="text-green-400 text-sm">✓ Salvo com sucesso</span>
+            )}
+            {error && (
+              <span className="text-red-400 text-sm">{error}</span>
+            )}
+            <button
+              onClick={saveAll}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-2"
+            >
+              {saving ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar configurações"
+              )}
+            </button>
+          </div>
         </div>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* Perfil */}
-        <Section title="Perfil">
-          <Field label="E-mail">
-            <p className="text-sm text-gray-500 text-right">{profile.email}</p>
-          </Field>
-          <Field label="Nome">
-            <input
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              placeholder="Seu nome"
-              className="w-full bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-            />
-          </Field>
-          <Field label="Perfil">
-            <p className="text-sm text-gray-500 text-right capitalize">{profile.perfil}</p>
-          </Field>
-          <Field label="WhatsApp vinculado">
-            <p className="text-sm text-right font-mono text-blue-400">
-              {profile.telefone_vinculado || (
-                <span className="text-gray-600">Não vinculado</span>
-              )}
-            </p>
-          </Field>
-        </Section>
-
-        {/* Bot */}
-        <Section title="Assistente" subtitle="Configurações de comportamento do bot">
-          <Field label="Nome do assistente">
-            <input
-              value={config.nome_assistente}
-              onChange={(e) => setConfig({ ...config, nome_assistente: e.target.value })}
-              placeholder="Assistente"
-              maxLength={100}
-              className="w-full bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-            />
-          </Field>
-          <Field label="Idioma">
-            <select
-              value={config.idioma}
-              onChange={(e) => setConfig({ ...config, idioma: e.target.value })}
-              className="w-full bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-            >
-              <option value="pt-BR">Português (Brasil)</option>
-              <option value="en-US">English (US)</option>
-              <option value="es">Español</option>
-            </select>
-          </Field>
-          <Field label="Bot ativo">
-            <div className="flex justify-end">
-              <Toggle checked={config.bot_ativo} onChange={(v) => setConfig({ ...config, bot_ativo: v })} />
-            </div>
-          </Field>
-          <Field label="Limite diário (msgs)" hint="Total de mensagens por dia">
-            <input
-              type="number"
-              value={config.limite_diario}
-              min={1}
-              max={10000}
-              onChange={(e) => setConfig({ ...config, limite_diario: parseInt(e.target.value) || 1 })}
-              className="w-full bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-            />
-          </Field>
-        </Section>
-
-        {/* IA — Sprint 3 */}
-        <Section
-          title="Inteligência Artificial"
-          subtitle="Controle o comportamento da IA e uso da OpenAI"
-        >
-          <Field label="IA ativa" hint="Habilita respostas inteligentes via OpenAI">
-            <div className="flex justify-end">
-              <Toggle
-                checked={config.ia_ativa}
-                onChange={(v) => setConfig({ ...config, ia_ativa: v })}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Perfil */}
+          <Section title="Perfil">
+            <Field label="E-mail">
+              <p className="text-sm text-gray-500 text-right">{profile.email}</p>
+            </Field>
+            <Field label="Nome">
+              <input
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="Seu nome"
+                className="w-full bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
               />
-            </div>
-          </Field>
-          <Field label="Limite IA por dia" hint="Máximo de consultas com IA por dia">
-            <input
-              type="number"
-              value={config.limite_ia_diario}
-              min={1}
-              max={10000}
-              onChange={(e) =>
-                setConfig({ ...config, limite_ia_diario: parseInt(e.target.value) || 1 })
-              }
-              className="w-full bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-            />
-          </Field>
-          <Field label="Nível de detalhe" hint="Controla o tamanho das respostas da IA">
-            <select
-              value={config.nivel_detalhe}
-              onChange={(e) => setConfig({ ...config, nivel_detalhe: e.target.value })}
-              className="w-full bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-            >
-              <option value="resumido">Resumido — máximo 2 linhas</option>
-              <option value="normal">Normal — completo e objetivo</option>
-              <option value="detalhado">Detalhado — com contexto e análise</option>
-            </select>
-          </Field>
+            </Field>
+            <Field label="Perfil">
+              <p className="text-sm text-gray-500 text-right capitalize">{profile.perfil}</p>
+            </Field>
+            <Field label="WhatsApp vinculado">
+              <p className="text-sm text-right font-mono text-blue-400">
+                {profile.telefone_vinculado || (
+                  <span className="text-gray-600">Não vinculado</span>
+                )}
+              </p>
+            </Field>
+          </Section>
 
-          <div className="mt-2 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
-            <p className="text-xs text-blue-400 leading-relaxed">
-              💡 <strong>Como funciona:</strong> A IA converte sua pergunta em SQL,
-              consulta o banco de dados e formata a resposta em português. Logs de
-              todas as consultas estão disponíveis em{" "}
-              <span className="font-mono">Logs IA</span>.
-            </p>
-          </div>
-        </Section>
+          {/* Bot */}
+          <Section title="Assistente" subtitle="Configurações de comportamento do bot">
+            <Field label="Nome do assistente">
+              <input
+                value={config.nome_assistente}
+                onChange={(e) => setConfig({ ...config, nome_assistente: e.target.value })}
+                placeholder="Assistente"
+                maxLength={100}
+                className="w-full bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+              />
+            </Field>
+            <Field label="Idioma">
+              <select
+                value={config.idioma}
+                onChange={(e) => setConfig({ ...config, idioma: e.target.value })}
+                className="w-full bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+              >
+                <option value="pt-BR">Português (Brasil)</option>
+                <option value="en-US">English (US)</option>
+                <option value="es">Español</option>
+              </select>
+            </Field>
+            <Field label="Bot ativo">
+              <div className="flex justify-end">
+                <Toggle checked={config.bot_ativo} onChange={(v) => setConfig({ ...config, bot_ativo: v })} />
+              </div>
+            </Field>
+            <Field label="Limite diário (msgs)" hint="Total de mensagens por dia">
+              <input
+                type="number"
+                value={config.limite_diario}
+                min={1}
+                max={10000}
+                onChange={(e) => setConfig({ ...config, limite_diario: parseInt(e.target.value) || 1 })}
+                className="w-full bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+              />
+            </Field>
+          </Section>
 
-        {/* Save */}
-        <div className="flex items-center justify-end gap-3">
-          {saved && (
-            <span className="text-green-400 text-sm">✓ Salvo com sucesso</span>
-          )}
-          <button
-            onClick={saveAll}
-            disabled={saving}
-            className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-2"
+          {/* IA */}
+          <Section
+            title="Inteligência Artificial"
+            subtitle="Controle o comportamento da IA"
           >
-            {saving ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              "Salvar configurações"
-            )}
-          </button>
+            <Field label="IA ativa" hint="Habilita respostas inteligentes">
+              <div className="flex justify-end">
+                <Toggle
+                  checked={config.ia_ativa}
+                  onChange={(v) => setConfig({ ...config, ia_ativa: v })}
+                />
+              </div>
+            </Field>
+            <Field label="Limite IA por dia" hint="Máximo de consultas com IA por dia">
+              <input
+                type="number"
+                value={config.limite_ia_diario}
+                min={1}
+                max={10000}
+                onChange={(e) =>
+                  setConfig({ ...config, limite_ia_diario: parseInt(e.target.value) || 1 })
+                }
+                className="w-full bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+              />
+            </Field>
+            <Field label="Nível de detalhe" hint="Controla o tamanho das respostas">
+              <select
+                value={config.nivel_detalhe}
+                onChange={(e) => setConfig({ ...config, nivel_detalhe: e.target.value })}
+                className="w-full bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+              >
+                <option value="resumido">Resumido — máximo 2 linhas</option>
+                <option value="normal">Normal — completo e objetivo</option>
+                <option value="detalhado">Detalhado — com contexto e análise</option>
+              </select>
+            </Field>
+
+            <div className="mt-2 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+              <p className="text-xs text-blue-400 leading-relaxed">
+                💡 <strong>Como funciona:</strong> A IA converte sua pergunta em SQL,
+                consulta o banco e formata a resposta em português. Veja os{" "}
+                <span className="font-mono">Logs IA</span> para histórico.
+              </p>
+            </div>
+          </Section>
         </div>
       </main>
     </div>

@@ -96,7 +96,7 @@ export default function AILogsPage() {
   return (
     <div className="min-h-screen bg-[#0f0f0f]">
       <Nav />
-      <main className="pt-14 px-6 max-w-6xl mx-auto py-8">
+      <main className="pt-14 px-6 max-w-7xl mx-auto py-8">
         {/* Header */}
         <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
           <div>
@@ -146,7 +146,7 @@ export default function AILogsPage() {
           ) : (
             <div className="divide-y divide-[#1e1e1e]">
               {/* Header */}
-              <div className="grid grid-cols-[120px_1fr_80px_80px_70px] gap-3 px-6 py-3 text-xs text-gray-600 uppercase tracking-wide">
+              <div className="grid grid-cols-[160px_1fr_100px_90px_120px] gap-3 px-6 py-3 text-xs text-gray-600 uppercase tracking-wide">
                 <span>Telefone</span>
                 <span>Pergunta</span>
                 <span>Tempo</span>
@@ -160,7 +160,7 @@ export default function AILogsPage() {
                     onClick={() =>
                       setExpanded(expanded === item.id ? null : item.id)
                     }
-                    className="w-full grid grid-cols-[120px_1fr_80px_80px_70px] gap-3 px-6 py-4 text-left hover:bg-white/5 transition-colors"
+                    className="w-full grid grid-cols-[160px_1fr_100px_90px_120px] gap-3 px-6 py-4 text-left hover:bg-white/5 transition-colors"
                   >
                     <span className="text-xs font-mono text-blue-400 truncate">
                       {item.telefone}
