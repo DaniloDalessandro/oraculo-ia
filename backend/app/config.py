@@ -44,6 +44,19 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_MINUTE: int = 5           # msgs/min por usuário
     RATE_LIMIT_BURST: int = 3                # tolerância extra
 
+    # E-mail / Recuperação de senha
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = "noreply@oraculoia.com"
+    PASSWORD_RESET_EXPIRE_MINUTES: int = 30
+
+    # Segurança — brute-force e sessões
+    LOGIN_MAX_ATTEMPTS: int = 5
+    LOGIN_LOCKOUT_SECONDS: int = 900          # 15 minutos
+    WHATSAPP_SESSION_EXPIRE_HOURS: int = 24   # sessões inativas expiram em 24h
+
 
 
 settings = Settings()

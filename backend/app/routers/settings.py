@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.core.dependencies import get_current_administrador as get_current_user
+from app.core.dependencies import get_current_user
 from app.database import get_db
 from app.models.user import User
 from app.models.session import Session, SessionStatus
@@ -35,13 +35,13 @@ async def get_profile(
 ):
     config = await config_service.get_or_create_config(db, current_user.id)
     telefone = await _get_linked_phone(db, current_user.id)
-
     config_out = UserConfigOut.model_validate(config) if config else None
 
     return UserProfileOut(
         id=str(current_user.id),
         email=current_user.email,
         nome=current_user.nome,
+        setor=current_user.setor,
         perfil=current_user.perfil,
         status_conta=current_user.status_conta,
         telefone_vinculado=telefone,
@@ -57,8 +57,20 @@ async def update_profile(
 ):
     if body.nome is not None:
         current_user.nome = body.nome
-        await db.commit()
-        await db.refresh(current_user)
+    if body.setor is not None:
+        current_user.setor = body.setor
+
+    if body.email is not None and body.email != current_user.email:
+        existing = await db.execute(select(User).where(User.email == body.email))
+        if existing.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Este e-mail ja esta em uso por outra conta.",
+            )
+        current_user.email = str(body.email)
+
+    await db.commit()
+    await db.refresh(current_user)
 
     config = await config_service.get_or_create_config(db, current_user.id)
     telefone = await _get_linked_phone(db, current_user.id)
@@ -67,6 +79,7 @@ async def update_profile(
         id=str(current_user.id),
         email=current_user.email,
         nome=current_user.nome,
+        setor=current_user.setor,
         perfil=current_user.perfil,
         status_conta=current_user.status_conta,
         telefone_vinculado=telefone,

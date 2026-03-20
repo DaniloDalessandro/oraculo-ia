@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { clearToken } from "@/lib/api";
+import { logout } from "@/lib/api";
 import {
   LayoutDashboard,
   MessageSquare,
@@ -11,6 +11,7 @@ import {
   Users,
   LogOut,
   Zap,
+  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,14 +21,15 @@ const links = [
   { href: "/ai-logs", label: "Logs IA", icon: Bot },
   { href: "/settings", label: "Configurações", icon: Settings },
   { href: "/usuarios", label: "Usuários", icon: Users },
+  { href: "/perfil", label: "Perfil", icon: UserCircle },
 ];
 
 export default function Nav() {
   const pathname = usePathname();
   const router = useRouter();
 
-  function handleLogout() {
-    clearToken();
+  async function handleLogout() {
+    await logout();
     router.push("/login");
   }
 

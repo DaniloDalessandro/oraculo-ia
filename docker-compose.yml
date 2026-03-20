@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16-alpine
@@ -91,7 +89,7 @@ services:
       - redis
 
   evolution-api:
-    image: atendai/evolution-api:v1.8.2
+    image: atendai/evolution-api:latest
     dns:
       - 8.8.8.8
       - 1.1.1.1
@@ -101,18 +99,58 @@ services:
     volumes:
       - evolution_data:/evolution/instances
     environment:
+      # Servidor
       SERVER_URL: http://localhost:8080
+      CORS_ORIGIN: "*"
+      CORS_METHODS: GET,POST,PUT,PATCH,DELETE
+      CORS_CREDENTIALS: "true"
+
+      # Logs
+      LOG_LEVEL: ERROR,WARN,INFO,LOG
+      LOG_COLOR: "true"
+      LOG_BAILEYS: error
+
+      # Autenticação
       AUTHENTICATION_TYPE: apikey
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-changeme}
-      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: true
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+
+      # QR Code
       QRCODE_LIMIT: 30
-      WEBSOCKET_ENABLED: false
-      DATABASE_ENABLED: false
-      REDIS_ENABLED: false
-      STORE_MESSAGES: true
-      STORE_MESSAGE_UP: true
-      STORE_CONTACTS: true
-      STORE_CHATS: true
+      QRCODE_COLOR: "#198754"
+
+      # Database (PostgreSQL dedicado para Evolution API v2.x)
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://postgres:postgres@db:5432/evolution
+      DATABASE_CONNECTION_CLIENT_NAME: evolution
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "true"
+      DATABASE_SAVE_DATA_CONTACTS: "true"
+      DATABASE_SAVE_DATA_CHATS: "true"
+      DATABASE_SAVE_DATA_LABELS: "true"
+      DATABASE_SAVE_DATA_HISTORIC: "true"
+
+      # Cache (desabilitado)
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "false"
+
+      # WebSocket
+      WEBSOCKET_ENABLED: "false"
+      WEBSOCKET_GLOBAL_EVENTS: "false"
+
+      # Filas (desabilitado)
+      RABBITMQ_ENABLED: "false"
+      SQS_ENABLED: "false"
+
+      # WhatsApp
+      CONFIG_SESSION_PHONE_CLIENT: Evolution API
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      DEL_INSTANCE: "false"
+
+      # Idioma
+      LANGUAGE: pt-BR
     depends_on:
       db:
         condition: service_healthy

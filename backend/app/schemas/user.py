@@ -80,3 +80,38 @@ class AdminUserUpdate(BaseModel):
     perfil: str | None = None
     status_conta: str | None = None
     is_active: bool | None = None
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    nova_senha: str
+
+
+class ChangePasswordRequest(BaseModel):
+    senha_atual: str
+    nova_senha: str
+
+
+class AuditLogOut(BaseModel):
+    id: str
+    user_id: str | None
+    acao: str
+    detalhes: str | None
+    ip: str | None
+    created_at: str
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("id", "user_id", mode="before")
+    @classmethod
+    def uuid_to_str(cls, v):
+        return str(v) if v else None
+
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def dt_to_str(cls, v):
+        return v.isoformat() if v else ""

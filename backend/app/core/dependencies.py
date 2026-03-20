@@ -3,10 +3,12 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import redis.asyncio as aioredis
 
 from app.core.security import decode_token
 from app.database import get_db
 from app.models.user import User
+from app.redis_client import get_redis
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -14,6 +16,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
+    redis: aioredis.Redis = Depends(get_redis),
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -23,9 +26,14 @@ async def get_current_user(
     try:
         payload = decode_token(token)
         user_id: str = payload.get("sub")
+        jti: str | None = payload.get("jti")
         if not user_id:
             raise credentials_exception
     except JWTError:
+        raise credentials_exception
+
+    # Verifica blocklist (logout revogou este token)
+    if jti and await redis.exists(f"token_blocklist:{jti}"):
         raise credentials_exception
 
     result = await db.execute(select(User).where(User.id == user_id))

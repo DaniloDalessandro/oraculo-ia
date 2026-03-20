@@ -12,6 +12,7 @@ celery_app = Celery(
     backend=settings.CELERY_RESULT_BACKEND,
     include=[
         "app.worker.tasks.message_tasks",
+        "app.worker.tasks.session_tasks",
     ],
 )
 
@@ -43,4 +44,11 @@ celery_app.conf.update(
     # Worker
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=100,
+    # Beat: tarefas periódicas
+    beat_schedule={
+        "expire-whatsapp-sessions": {
+            "task": "app.worker.tasks.session_tasks.expire_sessions_task",
+            "schedule": 3600,  # a cada 1 hora
+        },
+    },
 )

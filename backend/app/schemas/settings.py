@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserConfigOut(BaseModel):
@@ -29,6 +29,7 @@ class UserProfileOut(BaseModel):
     id: str
     email: str
     nome: str | None
+    setor: str | None
     perfil: str
     status_conta: str
     telefone_vinculado: str | None
@@ -39,3 +40,5 @@ class UserProfileOut(BaseModel):
 
 class UserProfileUpdate(BaseModel):
     nome: str | None = Field(None, max_length=100)
+    setor: str | None = Field(None, max_length=100)
+    email: EmailStr | None = None

@@ -18,7 +18,17 @@
       "Bash(npx shadcn@latest init -d)",
       "Bash(npx shadcn@latest add card badge separator skeleton progress --overwrite)",
       "Bash(npm install:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(grep -r \"email\\\\|mail\\\\|SMTP\\\\|send_email\" /c/Users/danilo.ecopel/Documents/PROJETOS/oraculo-ia/backend/app --include=*.py)",
+      "Bash(xargs grep:*)",
+      "WebFetch(domain:hub.docker.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(docker ps:*)",
+      "Bash(docker exec:*)",
+      "Bash(curl -s -X GET \"http://localhost:8080/instance/connect/oraculo\" -H \"apikey: f59c7f471506dea4f09e712fcca3c1d1c3243c78312baf8596395746e6c70844\")",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s \"http://localhost:8080/instance/fetchInstances\" -H \"apikey: f59c7f471506dea4f09e712fcca3c1d1c3243c78312baf8596395746e6c70844\")",
+      "Bash(curl -s \"http://localhost:8080/instance/connect/oraculo\" -H \"apikey: f59c7f471506dea4f09e712fcca3c1d1c3243c78312baf8596395746e6c70844\")"
     ]
   }
 }

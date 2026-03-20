@@ -9,6 +9,21 @@ export function clearToken(): void {
   localStorage.removeItem("access_token");
 }
 
+export async function logout(): Promise<void> {
+  const token = getToken();
+  if (token) {
+    try {
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      // Silencioso — limpa token local de qualquer forma
+    }
+  }
+  clearToken();
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -68,10 +83,20 @@ export interface UserProfile {
   id: string;
   email: string;
   nome: string | null;
+  setor: string | null;
   perfil: string;
   status_conta: string;
   telefone_vinculado: string | null;
   config: UserConfig | null;
+}
+
+export interface AuditLog {
+  id: string;
+  user_id: string | null;
+  acao: string;
+  detalhes: string | null;
+  ip: string | null;
+  created_at: string;
 }
 
 export interface UserConfig {
