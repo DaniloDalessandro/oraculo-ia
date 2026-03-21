@@ -11,10 +11,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev-secret-key-change-in-production-32chars!!"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     LOGIN_TOKEN_EXPIRE_MINUTES: int = 10
-    EVOLUTION_API_URL: str = "http://localhost:8080"
-    EVOLUTION_API_KEY: str = "changeme"
-    EVOLUTION_INSTANCE_NAME: str = "oraculo"
-    APP_URL: str = "http://localhost:3000"
+    # WhatsApp Cloud API (Meta)
+    WHATSAPP_TOKEN: str = "changeme"
+    WHATSAPP_PHONE_NUMBER_ID: str = "changeme"
+    WHATSAPP_VERIFY_TOKEN: str = "changeme"
+    WHATSAPP_API_VERSION: str = "v18.0"
+    APP_URL: str = "http://localhost:3001"
 
     # Sprint 3 — IA (provedor: "groq", "gemini" ou "openai")
     AI_PROVIDER: str = "groq"

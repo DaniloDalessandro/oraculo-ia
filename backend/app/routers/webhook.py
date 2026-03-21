@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 import redis.asyncio as aioredis
 
 from app.database import get_db
 from app.redis_client import get_redis
-from app.schemas.webhook import EvolutionWebhookPayload
+from app.schemas.webhook import WhatsAppWebhookPayload
 from app.services import auth as auth_service
 from app.services import session as session_service
 from app.services import message as message_service
@@ -24,48 +24,82 @@ from app.worker.tasks.message_tasks import process_message_task
 
 router = APIRouter(prefix="/webhook", tags=["Webhook"])
 
-MESSAGE_EVENTS = {"messages.upsert", "MESSAGES_UPSERT"}
+
+def extract_phone_and_message(payload: WhatsAppWebhookPayload) -> tuple[str | None, str | None]:
+    """
+    Extrai telefone e texto do payload da Meta WhatsApp Cloud API.
+    Estrutura: entry[0].changes[0].value.messages[0]
+    """
+    try:
+        entries = payload.entry or []
+        for entry in entries:
+            for change in entry.get("changes", []):
+                value = change.get("value", {})
+                messages = value.get("messages", [])
+                for msg in messages:
+                    # Ignorar mensagens enviadas pelo próprio sistema
+                    if msg.get("from") == value.get("metadata", {}).get("phone_number_id"):
+                        continue
+
+                    raw_phone = msg.get("from")
+                    if not raw_phone:
+                        continue
+
+                    phone = normalize_phone(raw_phone)
+                    msg_type = msg.get("type", "")
+
+                    # Texto simples
+                    if msg_type == "text":
+                        text = msg.get("text", {}).get("body", "")
+                        return phone, text
+
+                    # Resposta de botão interativo
+                    if msg_type == "interactive":
+                        interactive = msg.get("interactive", {})
+                        itype = interactive.get("type", "")
+                        if itype == "button_reply":
+                            text = interactive.get("button_reply", {}).get("id", "")
+                            return phone, text
+                        if itype == "list_reply":
+                            text = interactive.get("list_reply", {}).get("id", "")
+                            return phone, text
+
+                    # Outros tipos ignorados (imagem, áudio, etc.)
+                    return phone, None
+    except Exception:
+        pass
+    return None, None
 
 
-def extract_phone_and_message(
-    payload: EvolutionWebhookPayload,
-) -> tuple[str | None, str | None]:
-    data = payload.data or {}
-    key = data.get("key", {})
-    raw_phone = key.get("remoteJid") or data.get("remoteJid")
-    if not raw_phone:
-        return None, None
-    if "g.us" in raw_phone:
-        return None, None
-    if key.get("fromMe"):
-        return None, None
-    phone = normalize_phone(raw_phone)
-    message_obj = data.get("message", {})
-    text = (
-        message_obj.get("conversation")
-        or message_obj.get("extendedTextMessage", {}).get("text")
-        # Resposta de lista interativa (sendList)
-        or message_obj.get("listResponseMessage", {}).get("singleSelectReply", {}).get("selectedRowId")
-        # Resposta de botão nativo (sendButtons)
-        or message_obj.get("buttonsResponseMessage", {}).get("selectedButtonId")
-        or ""
-    )
-    return phone, text
+# ── Verificação do webhook (Meta exige GET na configuração) ───────────────────
+@router.get("/whatsapp")
+async def whatsapp_webhook_verify(
+    hub_mode: str = Query(None, alias="hub.mode"),
+    hub_verify_token: str = Query(None, alias="hub.verify_token"),
+    hub_challenge: str = Query(None, alias="hub.challenge"),
+):
+    if hub_mode == "subscribe" and hub_verify_token == settings.WHATSAPP_VERIFY_TOKEN:
+        return Response(content=hub_challenge, media_type="text/plain")
+    return Response(content="Forbidden", status_code=403)
 
 
+# ── Recebimento de mensagens (POST) ──────────────────────────────────────────
 @router.post("/whatsapp")
 async def whatsapp_webhook(
-    payload: EvolutionWebhookPayload,
+    payload: WhatsAppWebhookPayload,
     db: AsyncSession = Depends(get_db),
     redis: aioredis.Redis = Depends(get_redis),
 ):
-    event = payload.event or ""
-    if event and event not in MESSAGE_EVENTS:
-        return {"status": "ignored", "event": event}
+    # Verifica que é um evento do WhatsApp
+    if payload.object != "whatsapp_business_account":
+        return {"status": "ignored", "object": payload.object}
 
     phone, message_text = extract_phone_and_message(payload)
     if not phone:
         return {"status": "ignored", "reason": "no phone extracted"}
+    if message_text is None:
+        # Tipo de mensagem não suportado (imagem, áudio...) — apenas ack
+        return {"status": "ignored", "reason": "unsupported message type"}
 
     session_status = await session_service.get_session_status(redis, phone)
 
@@ -174,6 +208,7 @@ async def whatsapp_webhook(
             )
             await message_service.log_message(db, phone, user.id, text, "[menu enviado]")
             return {"status": "ok", "type": "command"}
+
         if reply:
             await send_whatsapp_message(phone, reply)
             await message_service.log_message(db, phone, user.id, text, reply)
@@ -188,7 +223,6 @@ async def whatsapp_webhook(
 
     # ── Processamento com IA via Celery ──────────────────────────────────────
     if config.ia_ativa:
-        # Verifica limite diário específico de IA
         ia_hoje = await count_ai_today(db, user.id)
         if ia_hoje >= config.limite_ia_diario:
             reply = (
@@ -200,7 +234,6 @@ async def whatsapp_webhook(
             await message_service.log_message(db, phone, user.id, text, reply)
             return {"status": "ok", "ia_limit_reached": True}
 
-        # Serializa config para Celery (não pode passar objetos ORM)
         config_data = {
             "email": user.email,
             "nome": user.nome,
@@ -214,7 +247,6 @@ async def whatsapp_webhook(
             "idioma": config.idioma,
         }
 
-        # Envia ack imediato e processa em background
         ack = f"⏳ _{config.nome_assistente} está processando sua consulta..._"
         await send_whatsapp_message(phone, ack)
 
@@ -228,7 +260,6 @@ async def whatsapp_webhook(
         )
         return {"status": "ok", "type": "queued"}
     else:
-        # IA desativada: resposta padrão
         reply = (
             f"👋 Olá! Sou o *{config.nome_assistente}*.\n\n"
             "🔇 A inteligência artificial está desativada para sua conta.\n"

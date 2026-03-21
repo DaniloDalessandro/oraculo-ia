@@ -31,7 +31,12 @@ function LoginForm() {
   useEffect(() => {
     if (countdown <= 0) return;
     if (countdown === 1) {
-      const t = setTimeout(() => window.close(), 1000);
+      const t = setTimeout(() => {
+        try { window.open("", "_self")?.close(); } catch { /* ignore */ }
+        try { window.close(); } catch { /* ignore */ }
+        // Fallback mobile: abre WhatsApp e some com a página
+        window.location.replace("whatsapp://");
+      }, 1000);
       return () => clearTimeout(t);
     }
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
@@ -130,23 +135,22 @@ function LoginForm() {
         <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center text-3xl">
           ✅
         </div>
-        <h2 className="text-xl font-semibold text-white">{success}</h2>
+        <h2 className="text-xl font-semibold text-white">Login realizado com sucesso!</h2>
         {isWhatsAppFlow && (
           <>
             <p className="text-gray-400 text-sm">
-              Volte ao WhatsApp — o assistente ja enviou uma mensagem para voce.
+              Voltando ao WhatsApp em {countdown > 0 ? `${countdown}s` : "instantes"}...
             </p>
-            {countdown > 0 && (
-              <p className="text-gray-600 text-xs">
-                Esta aba sera fechada em {countdown}s...
-              </p>
-            )}
             <button
               type="button"
-              onClick={() => window.close()}
-              className="mt-2 text-xs bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg transition-colors"
+              onClick={() => {
+                try { window.open("", "_self")?.close(); } catch { /* ignore */ }
+                try { window.close(); } catch { /* ignore */ }
+                window.location.replace("whatsapp://");
+              }}
+              className="mt-2 w-full bg-green-600 hover:bg-green-500 text-white font-semibold px-4 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
-              Fechar aba
+              💬 Voltar ao WhatsApp
             </button>
           </>
         )}

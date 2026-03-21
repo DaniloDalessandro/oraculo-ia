@@ -20,14 +20,19 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
 async def check_whatsapp_connected() -> bool:
+    """Verifica conectividade com WhatsApp Cloud API via Graph API."""
     try:
-        url = f"{settings.EVOLUTION_API_URL}/instance/connectionState/{settings.EVOLUTION_INSTANCE_NAME}"
+        url = (
+            f"https://graph.facebook.com/{settings.WHATSAPP_API_VERSION}"
+            f"/{settings.WHATSAPP_PHONE_NUMBER_ID}"
+            "?fields=display_phone_number,verified_name"
+        )
         async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(url, headers={"apikey": settings.EVOLUTION_API_KEY})
-            if resp.status_code == 200:
-                data = resp.json()
-                state = data.get("instance", {}).get("state") or data.get("state", "")
-                return state == "open"
+            resp = await client.get(
+                url,
+                headers={"Authorization": f"Bearer {settings.WHATSAPP_TOKEN}"},
+            )
+            return resp.status_code == 200
     except Exception:
         pass
     return False
