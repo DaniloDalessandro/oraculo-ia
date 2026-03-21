@@ -35,7 +35,7 @@ services:
     volumes:
       - ./backend:/app
     ports:
-      - "8000:8000"
+      - "8001:8000"
     env_file:
       - .env
     environment:
@@ -89,17 +89,18 @@ services:
       - redis
 
   evolution-api:
-    image: atendai/evolution-api:latest
+    image: atendai/evolution-api:v2.1.1
     dns:
       - 8.8.8.8
       - 1.1.1.1
     restart: unless-stopped
     ports:
       - "8080:8080"
+    shm_size: "256mb"
     volumes:
       - evolution_data:/evolution/instances
     environment:
-      # Servidor
+      # Servidor — usar IP do host ou nome acessível pelo browser
       SERVER_URL: http://localhost:8080
       CORS_ORIGIN: "*"
       CORS_METHODS: GET,POST,PUT,PATCH,DELETE
@@ -108,7 +109,7 @@ services:
       # Logs
       LOG_LEVEL: ERROR,WARN,INFO,LOG
       LOG_COLOR: "true"
-      LOG_BAILEYS: error
+      LOG_BAILEYS: debug
 
       # Autenticação
       AUTHENTICATION_TYPE: apikey
@@ -119,7 +120,7 @@ services:
       QRCODE_LIMIT: 30
       QRCODE_COLOR: "#198754"
 
-      # Database (PostgreSQL dedicado para Evolution API v2.x)
+      # Database
       DATABASE_ENABLED: "true"
       DATABASE_PROVIDER: postgresql
       DATABASE_CONNECTION_URI: postgresql://postgres:postgres@db:5432/evolution
@@ -132,13 +133,16 @@ services:
       DATABASE_SAVE_DATA_LABELS: "true"
       DATABASE_SAVE_DATA_HISTORIC: "true"
 
-      # Cache (desabilitado)
-      CACHE_REDIS_ENABLED: "false"
+      # Cache via Redis
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/3
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_REDIS_SAVE_INSTANCES: "true"
       CACHE_LOCAL_ENABLED: "false"
 
-      # WebSocket
-      WEBSOCKET_ENABLED: "false"
-      WEBSOCKET_GLOBAL_EVENTS: "false"
+      # WebSocket habilitado para entrega do QR em tempo real
+      WEBSOCKET_ENABLED: "true"
+      WEBSOCKET_GLOBAL_EVENTS: "true"
 
       # Filas (desabilitado)
       RABBITMQ_ENABLED: "false"
@@ -147,6 +151,7 @@ services:
       # WhatsApp
       CONFIG_SESSION_PHONE_CLIENT: Evolution API
       CONFIG_SESSION_PHONE_NAME: Chrome
+      CONFIG_SESSION_PHONE_VERSION: "2.3000.1035194821"
       DEL_INSTANCE: "false"
 
       # Idioma
@@ -163,7 +168,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       BACKEND_URL: http://backend:8000
     depends_on:
