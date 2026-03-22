@@ -6,9 +6,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ─────────────────────────────────────────────
-  # 1. Build, push e torna as imagens públicas
-  # ─────────────────────────────────────────────
   build-push:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
@@ -30,7 +27,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push — backend
+      - name: Build & push backend
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -41,7 +38,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build & push — frontend
+      - name: Build & push frontend
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
@@ -52,7 +49,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build & push — tunnel
+      - name: Build & push tunnel
         uses: docker/build-push-action@v5
         with:
           context: ./tunnel
@@ -63,25 +60,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Torna os pacotes GHCR públicos (VPS puxa sem autenticação)
       - name: Make GHCR packages public
         run: |
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          for pkg in oraculo-ia-backend oraculo-ia-frontend oraculo-ia-tunnel; do
-            echo "Setting $pkg to public..."
-            curl -s -o /dev/null -w "%{http_code}" \
+          for PKG in oraculo-ia-backend oraculo-ia-frontend oraculo-ia-tunnel; do
+            echo -n "Setting $PKG public: "
+            curl -s -o /dev/null -w "%{http_code}\n" \
               -X PATCH \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/user/packages/container/$pkg" \
+              "https://api.github.com/user/packages/container/$PKG" \
               -d '{"visibility":"public"}' || true
           done
-          echo "Packages set to public."
 
-  # ─────────────────────────────────────────────
-  # 2. SSH no VPS → atualiza imagens → reinicia
-  # ─────────────────────────────────────────────
   deploy:
     name: Deploy to VPS
     needs: build-push
@@ -99,72 +90,29 @@ jobs:
           envs: IMAGE_OWNER
           script: |
             set -e
+            OWNER=$(echo "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')
 
-            export OWNER=$(echo "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')
-
-            # Localizar docker-compose.yml do projeto oraculo no Dokploy
             COMPOSE_FILE=$(find /etc/dokploy/compose -name "docker-compose.yml" 2>/dev/null \
               | xargs grep -l -i "oraculo" 2>/dev/null | head -1 || true)
 
             if [ -z "$COMPOSE_FILE" ]; then
-              echo "ERRO: compose do projeto oraculo nao encontrado"
+              echo "ERRO: compose oraculo nao encontrado"
               exit 1
             fi
 
-            COMPOSE_DIR=$(dirname "$COMPOSE_FILE")
+            cd "$(dirname "$COMPOSE_FILE")"
             echo "Compose: $COMPOSE_FILE"
-            cd "$COMPOSE_DIR"
 
-            # Atualizar referencias de imagem para GHCR
-            python3 << PYEOF
-import re, os, sys
+            sed -i "s|image:.*oraculo-ia-backend.*|image: ghcr.io/$OWNER/oraculo-ia-backend:latest|g" docker-compose.yml
+            sed -i "s|image:.*oraculo-ia-frontend.*|image: ghcr.io/$OWNER/oraculo-ia-frontend:latest|g" docker-compose.yml
+            sed -i "s|image:.*oraculo-ia-tunnel.*|image: ghcr.io/$OWNER/oraculo-ia-tunnel:latest|g" docker-compose.yml
 
-owner = os.environ['OWNER']
-path = 'docker-compose.yml'
+            echo "=== Imagens no compose ==="
+            grep "image:" docker-compose.yml | grep -v "postgres\|redis"
 
-with open(path) as f:
-    content = f.read()
-
-original = content
-
-content = re.sub(
-    r'(image:\s*)\S*(?:oraculo[_-]ia[_-]backend|backend[-_]v\d+)\S*',
-    rf'\1ghcr.io/{owner}/oraculo-ia-backend:latest',
-    content
-)
-content = re.sub(
-    r'(image:\s*)\S*(?:oraculo[_-]ia[_-]frontend|frontend[-_]v\d+)\S*',
-    rf'\1ghcr.io/{owner}/oraculo-ia-frontend:latest',
-    content
-)
-content = re.sub(
-    r'(image:\s*)\S*(?:oraculo[_-]ia[_-]tunnel|tunnel[-_]v\d+)\S*',
-    rf'\1ghcr.io/{owner}/oraculo-ia-tunnel:latest',
-    content
-)
-
-if content == original:
-    print("AVISO: nenhuma imagem atualizada. Linhas 'image:' atuais:")
-    for l in content.splitlines():
-        if 'image:' in l:
-            print(' ', l.strip())
-    sys.exit(1)
-
-with open(path, 'w') as f:
-    f.write(content)
-
-changed = [l.strip() for l in content.splitlines() if 'ghcr.io' in l]
-print(f"Imagens atualizadas ({len(changed)} refs):")
-for l in changed:
-    print(' ', l)
-PYEOF
-
-            # Pull e restart (imagens publicas, sem docker login)
             docker compose pull backend celery-worker flower frontend tunnel
             docker compose up -d --no-deps --remove-orphans \
               backend celery-worker flower frontend tunnel
 
-            echo ""
-            echo "Deploy concluido!"
-            docker ps --filter "name=oraculo" \
-              --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
+            echo "=== Deploy concluido ==="
+            docker ps --filter "name=oraculo" --format "table {{.Names}}\t{{.Status}}"
