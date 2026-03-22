@@ -3,8 +3,10 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import redis.asyncio as aioredis
 
 from app.database import get_db
+from app.redis_client import get_redis
 from app.core.dependencies import get_current_user
 from app.core.security import hash_password
 from app.models.audit_log import AuditLog
@@ -83,6 +85,7 @@ async def atualizar_usuario(
     body: AdminUserUpdate,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
+    redis: aioredis.Redis = Depends(get_redis),
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -90,11 +93,23 @@ async def atualizar_usuario(
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
     status_anterior = user.status_conta
-    for field, value in body.model_dump(exclude_none=True).items():
+    updates = body.model_dump(exclude_none=True)
+    for field, value in updates.items():
         setattr(user, field, value)
+
+    # Mantém status_conta e is_active sincronizados
+    if "status_conta" in updates:
+        user.is_active = updates["status_conta"] == "ativo"
+    if "is_active" in updates:
+        user.status_conta = "ativo" if updates["is_active"] else "inativo"
 
     await db.commit()
     await db.refresh(user)
+
+    # Revoga tokens ativos se usuário foi desativado (issue #6 e #14)
+    is_now_inactive = not user.is_active or user.status_conta != "ativo"
+    if is_now_inactive:
+        await redis.setex(f"user_blocked:{user_id}", settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60, "1")
 
     ip = request.client.host if request.client else "unknown"
     await auth_service.record_audit(
@@ -135,9 +150,13 @@ async def deletar_usuario(
             detail="Não é possível excluir o próprio usuário",
         )
 
+    # Soft delete — preserva histórico de mensagens e logs (issue #9)
     email_deletado = user.email
-    await db.delete(user)
+    user.is_active = False
+    user.status_conta = "inativo"
+    user.email = f"deleted_{user.id}@deleted.invalid"
     await db.commit()
+    await redis.setex(f"user_blocked:{user_id}", settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60, "1")
 
     ip = request.client.host if request.client else "unknown"
     await auth_service.record_audit(

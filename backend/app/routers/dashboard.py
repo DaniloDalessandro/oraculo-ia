@@ -74,30 +74,21 @@ async def get_stats(
 
     whatsapp_conectado = await check_whatsapp_connected()
 
-    # Sprint 4: métricas de IA de hoje
+    # Métricas de IA — single query com agregações (issue #10)
     from datetime import date, datetime, timezone
     today_start = datetime.combine(date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
 
-    r_ia_hoje = await db.execute(
-        select(func.count(AIQueryLog.id)).where(AIQueryLog.created_at >= today_start)
+    r_ia = await db.execute(
+        select(
+            func.count(AIQueryLog.id).label("total"),
+            func.count(AIQueryLog.id).filter(AIQueryLog.erro.isnot(None)).label("erros"),
+            func.avg(AIQueryLog.tempo_execucao_ms).filter(AIQueryLog.erro.is_(None)).label("tempo_medio"),
+        ).where(AIQueryLog.created_at >= today_start)
     )
-    total_ia_hoje = r_ia_hoje.scalar_one() or 0
-
-    r_tempo = await db.execute(
-        select(func.avg(AIQueryLog.tempo_execucao_ms)).where(
-            AIQueryLog.created_at >= today_start,
-            AIQueryLog.erro.is_(None),
-        )
-    )
-    tempo_medio = float(r_tempo.scalar_one() or 0.0)
-
-    r_erros = await db.execute(
-        select(func.count(AIQueryLog.id)).where(
-            AIQueryLog.created_at >= today_start,
-            AIQueryLog.erro.isnot(None),
-        )
-    )
-    total_erros = r_erros.scalar_one() or 0
+    ia_row = r_ia.one()
+    total_ia_hoje = ia_row.total or 0
+    total_erros = ia_row.erros or 0
+    tempo_medio = float(ia_row.tempo_medio or 0.0)
     taxa_erro = round((total_erros / total_ia_hoje * 100) if total_ia_hoje else 0.0, 1)
 
     # Cache stats

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     WHATSAPP_PHONE_NUMBER_ID: str = "changeme"
     WHATSAPP_VERIFY_TOKEN: str = "changeme"
     WHATSAPP_API_VERSION: str = "v18.0"
+    WHATSAPP_APP_SECRET: str = ""  # App Secret do painel Meta (opcional mas recomendado)
     APP_URL: str = "http://localhost:3001"
 
     # Sprint 3 — IA (provedor: "groq", "gemini" ou "openai")
@@ -35,8 +36,8 @@ class Settings(BaseSettings):
     # Sprint 4 — Celery
     CELERY_BROKER_URL: str = "redis://redis:6379/1"
     CELERY_RESULT_BACKEND: str = "redis://redis:6379/2"
-    CELERY_TASK_SOFT_TIME_LIMIT: int = 60   # aviso após 60s
-    CELERY_TASK_TIME_LIMIT: int = 120        # kill após 120s
+    CELERY_TASK_SOFT_TIME_LIMIT: int = 55   # aviso após 55s (AI_TIMEOUT=30s + margem)
+    CELERY_TASK_TIME_LIMIT: int = 60        # kill após 60s
 
     # Sprint 4 — Cache de respostas IA
     AI_CACHE_TTL_SECONDS: int = 600          # 10 minutos

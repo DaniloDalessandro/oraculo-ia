@@ -66,11 +66,20 @@ def process_message_task(
     except SoftTimeLimitExceeded:
         log_event(celery_logger, "task_soft_timeout", level="warning",
                   task_id=self.request.id, phone=phone)
-        # Tenta enviar mensagem de timeout ao usuário
         try:
             asyncio.run(_send_timeout_message(phone))
         except Exception:
             pass
+        raise
+    except Exception as exc:
+        # Se esgotou todas as retries, notifica o usuário (issue #7)
+        if self.request.retries >= self.max_retries:
+            log_event(celery_logger, "task_failed_permanently", level="error",
+                      task_id=self.request.id, phone=phone, error=str(exc))
+            try:
+                asyncio.run(_send_error_message(phone))
+            except Exception:
+                pass
         raise
 
 
@@ -154,10 +163,18 @@ async def _async_process(
 
 
 async def _send_timeout_message(phone: str) -> None:
-    from app.config import settings
     from app.services.whatsapp import send_whatsapp_message
     await send_whatsapp_message(
         phone,
-        "Sua consulta demorou muito para processar. "
+        "⏱ Sua consulta demorou muito para processar. "
         "Por favor, reformule a pergunta e tente novamente."
+    )
+
+
+async def _send_error_message(phone: str) -> None:
+    from app.services.whatsapp import send_whatsapp_message
+    await send_whatsapp_message(
+        phone,
+        "⚠️ Não consegui processar sua mensagem após várias tentativas. "
+        "Por favor, tente novamente em alguns instantes."
     )

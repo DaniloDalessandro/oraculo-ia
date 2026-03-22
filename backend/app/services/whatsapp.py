@@ -26,8 +26,10 @@ async def _post(payload: dict) -> dict:
             return resp.json()
         except Exception as exc:
             to = payload.get("to", "?")
-            print(f"[WhatsApp] Falha ao enviar para {to}: {exc}")
-            return {"error": str(exc)}
+            # Mascara token no log para evitar vazamento (issue #12)
+            err_str = str(exc).replace(settings.WHATSAPP_TOKEN, "***TOKEN***")
+            print(f"[WhatsApp] Falha ao enviar para {to}: {err_str}")
+            return {"error": err_str}
 
 
 async def send_whatsapp_message(phone: str, message: str) -> dict:

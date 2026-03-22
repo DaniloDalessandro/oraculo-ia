@@ -32,10 +32,7 @@ function LoginForm() {
     if (countdown <= 0) return;
     if (countdown === 1) {
       const t = setTimeout(() => {
-        try { window.open("", "_self")?.close(); } catch { /* ignore */ }
-        try { window.close(); } catch { /* ignore */ }
-        // Fallback mobile: abre WhatsApp e some com a página
-        window.location.replace("whatsapp://");
+        window.location.href = "whatsapp://";
       }, 1000);
       return () => clearTimeout(t);
     }
@@ -141,17 +138,12 @@ function LoginForm() {
             <p className="text-gray-400 text-sm">
               Voltando ao WhatsApp em {countdown > 0 ? `${countdown}s` : "instantes"}...
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                try { window.open("", "_self")?.close(); } catch { /* ignore */ }
-                try { window.close(); } catch { /* ignore */ }
-                window.location.replace("whatsapp://");
-              }}
+            <a
+              href="whatsapp://"
               className="mt-2 w-full bg-green-600 hover:bg-green-500 text-white font-semibold px-4 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
               💬 Voltar ao WhatsApp
-            </button>
+            </a>
           </>
         )}
       </div>
@@ -215,7 +207,7 @@ function LoginForm() {
             placeholder="seu@email.com"
             required
             disabled={loading}
-            className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition disabled:opacity-50 text-sm"
+            className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 transition disabled:opacity-50 text-sm"
           />
         </div>
 
@@ -258,11 +250,18 @@ function LoginForm() {
     >
       {/* Header */}
       <div className="text-center mb-2">
-        <div className="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4">
-          🤖
+        <div className="flex items-center justify-center gap-2 mb-3">
+          <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+              <path d="m3.3 7 8.7 5 8.7-5"/>
+              <path d="M12 22V12"/>
+            </svg>
+          </div>
+          <span className="text-white font-bold text-xl tracking-tight">CBS</span>
         </div>
-        <h1 className="text-2xl font-bold text-white">Entrar na plataforma</h1>
-        <p className="text-gray-400 text-sm mt-1">Acesse sua conta corporativa</p>
+        <h1 className="text-2xl font-bold text-white">Gestão de Estoque</h1>
+        <p className="text-gray-400 text-sm mt-1">Acesse sua conta para continuar</p>
       </div>
 
       {/* Erro */}
@@ -282,7 +281,7 @@ function LoginForm() {
           placeholder="seu@email.com"
           required
           disabled={loading}
-          className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition disabled:opacity-50 text-sm"
+          className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 transition disabled:opacity-50 text-sm"
         />
       </div>
 
@@ -296,7 +295,7 @@ function LoginForm() {
           placeholder="••••••••"
           required
           disabled={loading}
-          className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition disabled:opacity-50 text-sm"
+          className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 transition disabled:opacity-50 text-sm"
         />
       </div>
 
@@ -304,7 +303,7 @@ function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+        className="w-full bg-orange-600 hover:bg-orange-500 active:bg-orange-700 disabled:bg-orange-900 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
       >
         {loading ? (
           <>
@@ -337,13 +336,17 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-[#0f0f0f]">
-      <div className="w-full max-w-sm">
-        <div className="bg-[#141414] border border-[#1e1e1e] rounded-2xl p-8 shadow-2xl">
+    <main className="min-h-screen flex items-center justify-center p-4 bg-[#0a0a0a]">
+      {/* Fundo com gradiente sutil */}
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-950/20 via-transparent to-transparent pointer-events-none" />
+
+      <div className="w-full max-w-sm relative">
+        {/* Card */}
+        <div className="bg-[#111111] border border-orange-900/30 rounded-2xl p-8 shadow-2xl shadow-orange-950/20">
           <Suspense
             fallback={
               <div className="flex items-center justify-center py-12">
-                <span className="inline-block w-6 h-6 border-2 border-[#2a2a2a] border-t-blue-500 rounded-full animate-spin" />
+                <span className="inline-block w-6 h-6 border-2 border-orange-900/40 border-t-orange-500 rounded-full animate-spin" />
               </div>
             }
           >
@@ -352,7 +355,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-700 mt-6">
-          Oraculo IA &copy; {new Date().getFullYear()} &mdash; Plataforma corporativa
+          CBS Gestão de Estoque &copy; {new Date().getFullYear()}
         </p>
       </div>
     </main>

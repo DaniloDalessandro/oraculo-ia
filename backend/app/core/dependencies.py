@@ -40,6 +40,11 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
         raise credentials_exception
+
+    # Verifica se usuário foi desativado após emissão do token
+    if await redis.exists(f"user_blocked:{user_id}"):
+        raise credentials_exception
+
     return user
 
 

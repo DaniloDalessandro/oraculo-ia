@@ -1,6 +1,8 @@
+import hashlib
+import hmac
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 import redis.asyncio as aioredis
@@ -23,6 +25,30 @@ from app.config import settings
 from app.worker.tasks.message_tasks import process_message_task
 
 router = APIRouter(prefix="/webhook", tags=["Webhook"])
+
+_WEBHOOK_FLOOD_LIMIT = 60   # máx requests por IP por minuto (issue #8)
+
+
+async def _check_webhook_flood(redis: aioredis.Redis, ip: str) -> bool:
+    """Retorna True se IP excedeu o limite de requests por minuto."""
+    key = f"webhook_flood:{ip}:{int(__import__('time').time() // 60)}"
+    count = await redis.incr(key)
+    if count == 1:
+        await redis.expire(key, 90)
+    return count > _WEBHOOK_FLOOD_LIMIT
+
+
+def _verify_whatsapp_signature(body: bytes, signature_header: str | None) -> bool:
+    """Valida assinatura HMAC-SHA256 enviada pela Meta."""
+    app_secret = getattr(settings, "WHATSAPP_APP_SECRET", "")
+    if not app_secret:
+        return True  # Se não configurado, permite (retrocompatibilidade)
+    if not signature_header or not signature_header.startswith("sha256="):
+        return False
+    expected = "sha256=" + hmac.new(
+        app_secret.encode(), body, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature_header)
 
 
 def extract_phone_and_message(payload: WhatsAppWebhookPayload) -> tuple[str | None, str | None]:
@@ -86,10 +112,22 @@ async def whatsapp_webhook_verify(
 # ── Recebimento de mensagens (POST) ──────────────────────────────────────────
 @router.post("/whatsapp")
 async def whatsapp_webhook(
+    request: Request,
     payload: WhatsAppWebhookPayload,
     db: AsyncSession = Depends(get_db),
     redis: aioredis.Redis = Depends(get_redis),
 ):
+    # Proteção contra flood por IP (issue #8)
+    client_ip = request.client.host if request.client else "unknown"
+    if await _check_webhook_flood(redis, client_ip):
+        return Response(content="Too Many Requests", status_code=429)
+
+    # Valida assinatura HMAC da Meta
+    body = await request.body()
+    sig = request.headers.get("X-Hub-Signature-256")
+    if not _verify_whatsapp_signature(body, sig):
+        return Response(content="Unauthorized", status_code=401)
+
     # Verifica que é um evento do WhatsApp
     if payload.object != "whatsapp_business_account":
         return {"status": "ignored", "object": payload.object}

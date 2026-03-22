@@ -21,7 +21,34 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     await init_redis()
 
-    # Item 11: valida configuração SMTP na inicialização
+    # Valida credenciais críticas
+    _DUMMY = {"changeme", "dev-secret-key-change-in-production-32chars!!",
+               "seu-token-aqui", "seu-phone-number-id-aqui", "um-token-secreto-qualquer", ""}
+    _critical = {
+        "SECRET_KEY": settings.SECRET_KEY,
+        "WHATSAPP_TOKEN": settings.WHATSAPP_TOKEN,
+        "WHATSAPP_PHONE_NUMBER_ID": settings.WHATSAPP_PHONE_NUMBER_ID,
+    }
+    for name, val in _critical.items():
+        if val in _DUMMY:
+            logger.warning("AVISO: %s nao foi configurado. Funcionalidades podem falhar.", name)
+
+    # Valida AI_PROVIDER (issue #13)
+    _valid_providers = {"groq", "gemini", "openai"}
+    if settings.AI_PROVIDER not in _valid_providers:
+        logger.warning(
+            "AI_PROVIDER='%s' é inválido. Use: %s. Usando 'openai' como fallback.",
+            settings.AI_PROVIDER, ", ".join(_valid_providers)
+        )
+
+    # Valida alinhamento de timeouts (issue #15)
+    if settings.AI_TIMEOUT_SECONDS >= settings.CELERY_TASK_SOFT_TIME_LIMIT:
+        logger.warning(
+            "AI_TIMEOUT_SECONDS (%ds) deve ser menor que CELERY_TASK_SOFT_TIME_LIMIT (%ds).",
+            settings.AI_TIMEOUT_SECONDS, settings.CELERY_TASK_SOFT_TIME_LIMIT
+        )
+
+    # Valida configuração SMTP na inicialização
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
         logger.warning(
             "SMTP nao configurado (SMTP_USER/SMTP_PASSWORD vazios). "
@@ -40,12 +67,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_cors_origins = [
+    "http://localhost:3001",
+    "http://localhost:3000",
+    settings.APP_URL,
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=list(set(_cors_origins)),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
 app.include_router(health.router)

@@ -68,6 +68,8 @@ async def execute_safe(db: AsyncSession, sql: str) -> dict[str, Any]:
 
 async def _run_query(db: AsyncSession, sql: str) -> dict[str, Any]:
     try:
+        # Executa em transação read-only para prevenir side effects
+        await db.execute(text("SET LOCAL transaction_read_only = on"))
         result = await db.execute(text(sql))
     except Exception as exc:
         raise SQLExecutionError(f"Erro SQL: {exc}") from exc
