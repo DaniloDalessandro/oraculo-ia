@@ -3,18 +3,18 @@ name: Build & Deploy
 on:
   push:
     branches: [main]
-  workflow_dispatch: # permite rodar manualmente pela UI do GitHub
+  workflow_dispatch:
 
 jobs:
   # ─────────────────────────────────────────────
-  # 1. Build e push das 3 imagens para o GHCR
+  # 1. Build, push e torna as imagens públicas
   # ─────────────────────────────────────────────
   build-push:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write # necessário para publicar no GHCR
+      packages: write
 
     steps:
       - name: Checkout
@@ -28,7 +28,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }} # token automático, sem setup extra
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & push — backend
         uses: docker/build-push-action@v5
@@ -63,6 +63,22 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Torna os pacotes GHCR públicos (VPS puxa sem autenticação)
+      - name: Make GHCR packages public
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          for pkg in oraculo-ia-backend oraculo-ia-frontend oraculo-ia-tunnel; do
+            echo "Setting $pkg to public..."
+            curl -s -o /dev/null -w "%{http_code}" \
+              -X PATCH \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/user/packages/container/$pkg" \
+              -d '{"visibility":"public"}' || true
+          done
+          echo "Packages set to public."
+
   # ─────────────────────────────────────────────
   # 2. SSH no VPS → atualiza imagens → reinicia
   # ─────────────────────────────────────────────
@@ -76,37 +92,31 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           IMAGE_OWNER: ${{ github.repository_owner }}
-          GITHUB_ACTOR: ${{ github.actor }}
-          GHCR_PAT: ${{ secrets.GHCR_PAT }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          envs: IMAGE_OWNER,GITHUB_ACTOR,GHCR_PAT
+          envs: IMAGE_OWNER
           script: |
             set -e
 
-            # 1. Login no GHCR para poder puxar imagens privadas
-            echo "$GHCR_PAT" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-            echo "Login GHCR OK"
+            export OWNER=$(echo "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')
 
-            # 2. Localizar o docker-compose.yml do projeto oraculo no Dokploy
+            # Localizar docker-compose.yml do projeto oraculo no Dokploy
             COMPOSE_FILE=$(find /etc/dokploy/compose -name "docker-compose.yml" 2>/dev/null \
               | xargs grep -l -i "oraculo" 2>/dev/null | head -1 || true)
 
             if [ -z "$COMPOSE_FILE" ]; then
-              echo "ERRO: docker-compose.yml do projeto oraculo nao encontrado em /etc/dokploy/compose"
+              echo "ERRO: compose do projeto oraculo nao encontrado"
               exit 1
             fi
 
             COMPOSE_DIR=$(dirname "$COMPOSE_FILE")
-            echo "Compose encontrado: $COMPOSE_FILE"
+            echo "Compose: $COMPOSE_FILE"
             cd "$COMPOSE_DIR"
 
-            # 3. Atualizar referencias de imagem para GHCR
-            export OWNER=$(echo "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')
-
-            python3 << 'PYEOF'
+            # Atualizar referencias de imagem para GHCR
+            python3 << PYEOF
 import re, os, sys
 
 owner = os.environ['OWNER']
@@ -117,7 +127,6 @@ with open(path) as f:
 
 original = content
 
-# Backend, celery-worker e flower usam a mesma imagem backend
 content = re.sub(
     r'(image:\s*)\S*(?:oraculo[_-]ia[_-]backend|backend[-_]v\d+)\S*',
     rf'\1ghcr.io/{owner}/oraculo-ia-backend:latest',
@@ -135,22 +144,22 @@ content = re.sub(
 )
 
 if content == original:
-    print("AVISO: Nenhuma imagem atualizada. Linhas 'image:' encontradas:")
-    for line in content.splitlines():
-        if 'image:' in line.lower():
-            print(' ', line.strip())
+    print("AVISO: nenhuma imagem atualizada. Linhas 'image:' atuais:")
+    for l in content.splitlines():
+        if 'image:' in l:
+            print(' ', l.strip())
     sys.exit(1)
 
 with open(path, 'w') as f:
     f.write(content)
 
 changed = [l.strip() for l in content.splitlines() if 'ghcr.io' in l]
-print(f"Imagens atualizadas ({len(changed)} linhas):")
+print(f"Imagens atualizadas ({len(changed)} refs):")
 for l in changed:
     print(' ', l)
 PYEOF
 
-            # 4. Pull das novas imagens e restart dos containers
+            # Pull e restart (imagens publicas, sem docker login)
             docker compose pull backend celery-worker flower frontend tunnel
             docker compose up -d --no-deps --remove-orphans \
               backend celery-worker flower frontend tunnel
