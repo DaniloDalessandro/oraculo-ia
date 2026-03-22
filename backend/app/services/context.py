@@ -34,7 +34,6 @@ async def add_to_context(
     ctx = await get_context(redis, user_id)
     ctx.append({"role": "user", "content": question})
     ctx.append({"role": "assistant", "content": answer})
-    # Mantém apenas os últimos max_pairs pares (max_pairs*2 mensagens)
     ctx = ctx[-(max_pairs * 2):]
     await redis.set(f"ai_context:{user_id}", json.dumps(ctx), ex=CONTEXT_TTL_SECONDS)
 

@@ -1,9 +1,4 @@
-"""
-Task Celery: processamento assíncrono de mensagens com IA.
-
-Fluxo:
-  webhook (fast) → enfileira process_message_task → worker executa pipeline IA → responde WhatsApp
-"""
+"""Task Celery: processamento assíncrono de mensagens com IA."""
 
 import asyncio
 import time
@@ -72,7 +67,6 @@ def process_message_task(
             pass
         raise
     except Exception as exc:
-        # Se esgotou todas as retries, notifica o usuário (issue #7)
         if self.request.retries >= self.max_retries:
             log_event(celery_logger, "task_failed_permanently", level="error",
                       task_id=self.request.id, phone=phone, error=str(exc))
@@ -91,6 +85,7 @@ async def _async_process(
 ) -> None:
     """Async core do processamento: DB + Redis + IA + WhatsApp."""
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+    from sqlalchemy.pool import NullPool
     from sqlalchemy import select
     import redis.asyncio as aioredis
     import uuid as uuid_module
@@ -98,7 +93,6 @@ async def _async_process(
     from app.config import settings
     from app.models.user import User
     from app.models.user_config import UserConfig
-    # Importar todos os modelos relacionados para que o SQLAlchemy configure os mappers corretamente
     from app.models.session import Session  # noqa: F401
     from app.models.login_token import LoginToken  # noqa: F401
     from app.models.message import Message  # noqa: F401
@@ -109,13 +103,12 @@ async def _async_process(
     from app.services.cache import get_cached, set_cached
     from app.services.whatsapp import send_whatsapp_message
 
-    engine = create_async_engine(settings.DATABASE_URL, echo=False)
+    engine = create_async_engine(settings.DATABASE_URL, echo=False, poolclass=NullPool)
     AsyncSess = async_sessionmaker(engine, expire_on_commit=False)
     redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
 
     try:
         async with AsyncSess() as db:
-            # Reconstrói objetos User e UserConfig a partir dos dados serializados
             user = User()
             user.id = uuid_module.UUID(user_id)
             user.email = config_data.get("email", "")
@@ -132,14 +125,12 @@ async def _async_process(
             config.nome_assistente = config_data.get("nome_assistente", "Assistente")
             config.idioma = config_data.get("idioma", "pt-BR")
 
-            # Cache check
             cached = await get_cached(redis, user_id, text)
             if cached:
                 await send_whatsapp_message(phone, cached)
                 await message_service.log_message(db, phone, user.id, text, cached)
                 return
 
-            # Processa com IA
             reply = await process_ai_message(
                 db=db,
                 redis=redis,
@@ -149,12 +140,10 @@ async def _async_process(
                 question=text,
             )
 
-            # Armazena no cache apenas respostas válidas (não erros)
-            from app.services.ai_pipeline import _ERR_AI_FAILED, _ERR_SQL_EXEC, _ERR_TIMEOUT
-            if reply not in (_ERR_AI_FAILED, _ERR_SQL_EXEC, _ERR_TIMEOUT):
+            from app.services.ai_pipeline import _ERR_AI_FAILED
+            if reply != _ERR_AI_FAILED:
                 await set_cached(redis, user_id, text, reply)
 
-            # Envia resposta e registra no histórico de mensagens
             await send_whatsapp_message(phone, reply)
             await message_service.log_message(db, phone, user.id, text, reply)
     finally:

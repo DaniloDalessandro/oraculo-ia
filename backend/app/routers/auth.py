@@ -45,7 +45,6 @@ async def login(
     ip = request.client.host if request.client else "unknown"
     attempts_key = f"{_ATTEMPTS_KEY}{body.email}"
 
-    # Brute-force: verifica bloqueio
     attempts = await redis.get(attempts_key)
     if attempts and int(attempts) >= settings.LOGIN_MAX_ATTEMPTS:
         raise HTTPException(
@@ -55,7 +54,6 @@ async def login(
 
     user = await auth_service.authenticate_user(db, body.email, body.senha)
     if not user:
-        # Incrementa contador de tentativas
         await redis.incr(attempts_key)
         await redis.expire(attempts_key, settings.LOGIN_LOCKOUT_SECONDS)
         await auth_service.record_audit(db, "login_falhou", detalhes=body.email, ip=ip)
@@ -64,7 +62,6 @@ async def login(
             detail="Email ou senha invalidos",
         )
 
-    # Sucesso: zera contador
     await redis.delete(attempts_key)
 
     if user.status_conta == "pendente":
@@ -93,7 +90,6 @@ async def logout(
     redis: aioredis.Redis = Depends(get_redis),
     current_user: User = Depends(get_current_user),
 ):
-    # Extrai token do header Authorization
     auth_header = request.headers.get("Authorization", "")
     token_str = auth_header.removeprefix("Bearer ").strip()
     await auth_service.logout_user(redis, token_str)

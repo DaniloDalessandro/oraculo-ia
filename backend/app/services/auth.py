@@ -27,7 +27,6 @@ async def get_or_create_session(db: AsyncSession, telefone: str) -> Session:
 
 
 async def create_login_token(db: AsyncSession, telefone: str) -> LoginToken:
-    # Invalida tokens anteriores não utilizados
     await db.execute(
         update(LoginToken)
         .where(LoginToken.telefone == telefone, LoginToken.usado == False)
@@ -120,7 +119,7 @@ async def logout_user(redis: aioredis.Redis, token_str: str) -> None:
             if ttl > 0:
                 await redis.setex(f"token_blocklist:{jti}", ttl, "1")
     except Exception:
-        pass  # token inválido — ignorar silenciosamente
+        pass
 
 
 async def change_password(

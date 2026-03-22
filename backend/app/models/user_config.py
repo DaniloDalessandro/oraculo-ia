@@ -17,17 +17,14 @@ class UserConfig(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False
     )
-    # Bot
     bot_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     limite_diario: Mapped[int] = mapped_column(Integer, default=100)
     idioma: Mapped[str] = mapped_column(String(10), default="pt-BR")
     nome_assistente: Mapped[str] = mapped_column(String(100), default="Assistente")
 
-    # Sprint 3 — IA
     ia_ativa: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     limite_ia_diario: Mapped[int] = mapped_column(Integer, default=50, server_default="50")
-    # nivel_detalhe: resumido | normal | detalhado
-    nivel_detalhe: Mapped[str] = mapped_column(
+    nivel_detalhe: Mapped[str] = mapped_column(  # resumido | normal | detalhado
         String(20), default="normal", server_default="normal"
     )
 

@@ -12,7 +12,6 @@ from typing import Any, Callable
 
 from pythonjsonlogger import jsonlogger
 
-# Context var para propagar request_id ao longo do ciclo de vida
 _request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
 
 
@@ -31,7 +30,6 @@ def _get_logger(name: str) -> logging.Logger:
     return logger
 
 
-# Loggers por domínio
 webhook_logger = _get_logger("oraculo.webhook")
 ai_logger = _get_logger("oraculo.ai")
 celery_logger = _get_logger("oraculo.celery")

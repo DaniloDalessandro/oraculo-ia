@@ -9,10 +9,12 @@ from app.database import Base, engine
 from app.redis_client import close_redis, init_redis
 from app.routers import admin, ai_logs, auth, dashboard, health, messages, settings as settings_router, webhook
 
-# Garante que todos os modelos estão registrados no metadata antes do create_all
 import app.models.audit_log  # noqa: F401
 
 logger = logging.getLogger(__name__)
+
+
+_APP_URL_REDIS_KEY = "app:frontend_url"
 
 
 @asynccontextmanager
@@ -21,7 +23,16 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     await init_redis()
 
-    # Valida credenciais críticas
+    from app.redis_client import get_redis as _get_redis
+    _redis = await _get_redis()
+    try:
+        cached_url = await _redis.get(_APP_URL_REDIS_KEY)
+        if cached_url:
+            settings.APP_URL = cached_url
+            logger.info("APP_URL restaurado do Redis: %s", cached_url)
+    except Exception as exc:
+        logger.warning("Não foi possível restaurar APP_URL do Redis: %s", exc)
+
     _DUMMY = {"changeme", "dev-secret-key-change-in-production-32chars!!",
                "seu-token-aqui", "seu-phone-number-id-aqui", "um-token-secreto-qualquer", ""}
     _critical = {
@@ -48,7 +59,6 @@ async def lifespan(app: FastAPI):
             settings.AI_TIMEOUT_SECONDS, settings.CELERY_TASK_SOFT_TIME_LIMIT
         )
 
-    # Valida configuração SMTP na inicialização
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
         logger.warning(
             "SMTP nao configurado (SMTP_USER/SMTP_PASSWORD vazios). "

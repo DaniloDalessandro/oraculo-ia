@@ -1,6 +1,6 @@
 import hashlib
 import hmac
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,7 +42,7 @@ def _verify_whatsapp_signature(body: bytes, signature_header: str | None) -> boo
     """Valida assinatura HMAC-SHA256 enviada pela Meta."""
     app_secret = getattr(settings, "WHATSAPP_APP_SECRET", "")
     if not app_secret:
-        return True  # Se não configurado, permite (retrocompatibilidade)
+        return False  # Sem segredo configurado, rejeita tudo
     if not signature_header or not signature_header.startswith("sha256="):
         return False
     expected = "sha256=" + hmac.new(
@@ -63,7 +63,6 @@ def extract_phone_and_message(payload: WhatsAppWebhookPayload) -> tuple[str | No
                 value = change.get("value", {})
                 messages = value.get("messages", [])
                 for msg in messages:
-                    # Ignorar mensagens enviadas pelo próprio sistema
                     if msg.get("from") == value.get("metadata", {}).get("phone_number_id"):
                         continue
 
@@ -74,12 +73,10 @@ def extract_phone_and_message(payload: WhatsAppWebhookPayload) -> tuple[str | No
                     phone = normalize_phone(raw_phone)
                     msg_type = msg.get("type", "")
 
-                    # Texto simples
                     if msg_type == "text":
                         text = msg.get("text", {}).get("body", "")
                         return phone, text
 
-                    # Resposta de botão interativo
                     if msg_type == "interactive":
                         interactive = msg.get("interactive", {})
                         itype = interactive.get("type", "")
@@ -90,14 +87,12 @@ def extract_phone_and_message(payload: WhatsAppWebhookPayload) -> tuple[str | No
                             text = interactive.get("list_reply", {}).get("id", "")
                             return phone, text
 
-                    # Outros tipos ignorados (imagem, áudio, etc.)
                     return phone, None
     except Exception:
         pass
     return None, None
 
 
-# ── Verificação do webhook (Meta exige GET na configuração) ───────────────────
 @router.get("/whatsapp")
 async def whatsapp_webhook_verify(
     hub_mode: str = Query(None, alias="hub.mode"),
@@ -109,7 +104,6 @@ async def whatsapp_webhook_verify(
     return Response(content="Forbidden", status_code=403)
 
 
-# ── Recebimento de mensagens (POST) ──────────────────────────────────────────
 @router.post("/whatsapp")
 async def whatsapp_webhook(
     request: Request,
@@ -117,18 +111,15 @@ async def whatsapp_webhook(
     db: AsyncSession = Depends(get_db),
     redis: aioredis.Redis = Depends(get_redis),
 ):
-    # Proteção contra flood por IP (issue #8)
     client_ip = request.client.host if request.client else "unknown"
     if await _check_webhook_flood(redis, client_ip):
         return Response(content="Too Many Requests", status_code=429)
 
-    # Valida assinatura HMAC da Meta
     body = await request.body()
     sig = request.headers.get("X-Hub-Signature-256")
     if not _verify_whatsapp_signature(body, sig):
         return Response(content="Unauthorized", status_code=401)
 
-    # Verifica que é um evento do WhatsApp
     if payload.object != "whatsapp_business_account":
         return {"status": "ignored", "object": payload.object}
 
@@ -136,12 +127,10 @@ async def whatsapp_webhook(
     if not phone:
         return {"status": "ignored", "reason": "no phone extracted"}
     if message_text is None:
-        # Tipo de mensagem não suportado (imagem, áudio...) — apenas ack
         return {"status": "ignored", "reason": "unsupported message type"}
 
     session_status = await session_service.get_session_status(redis, phone)
 
-    # ── Não autenticado ──────────────────────────────────────────────────────
     if session_status != "autenticado":
         await auth_service.get_or_create_session(db, phone)
         token = await auth_service.create_login_token(db, phone)
@@ -161,12 +150,29 @@ async def whatsapp_webhook(
         )
         return {"status": "ok", "authenticated": False}
 
-    # ── Busca usuário ────────────────────────────────────────────────────────
     user_id_str = await session_service.get_session_user(redis, phone)
     user: User | None = None
     if user_id_str:
         result = await db.execute(select(User).where(User.id == user_id_str))
         user = result.scalar_one_or_none()
+
+    sess_result = await db.execute(select(Session).where(Session.telefone == phone))
+    sess_record = sess_result.scalar_one_or_none()
+    if sess_record:
+        ref = sess_record.last_activity or sess_record.authenticated_at
+        if ref:
+            ref_utc = ref if ref.tzinfo else ref.replace(tzinfo=timezone.utc)
+            age = datetime.now(timezone.utc) - ref_utc
+            expire_hours = getattr(settings, "WHATSAPP_SESSION_EXPIRE_HOURS", 24)
+            if age > timedelta(hours=expire_hours):
+                await session_service.set_session_status(redis, phone, "nao_autenticado")
+                reply = (
+                    "⏳ *Sessão expirada por inatividade.*\n\n"
+                    "Envie qualquer mensagem para receber um novo link de acesso."
+                )
+                await send_whatsapp_message(phone, reply)
+                await message_service.log_message(db, phone, None, message_text or "", reply)
+                return {"status": "ok", "session_expired": True}
 
     await db.execute(
         update(Session)
@@ -182,7 +188,6 @@ async def whatsapp_webhook(
         await message_service.log_message(db, phone, None, message_text or "", reply)
         return {"status": "ok", "session_expired": True}
 
-    # ── Conta inativa ou desativada ──────────────────────────────────────────
     if user.status_conta != "ativo" or not user.is_active:
         reply = "⛔ Sua conta não está ativa. Entre em contato com o administrador."
         await send_whatsapp_message(phone, reply)
@@ -191,14 +196,12 @@ async def whatsapp_webhook(
     config = await config_service.get_or_create_config(db, user.id)
     text = (message_text or "").strip()
 
-    # ── Bot desativado ───────────────────────────────────────────────────────
     if not config.bot_ativo:
         reply = "🔇 *Bot desativado.*\n\nAcesse o painel web para reativá-lo em Configurações."
         await send_whatsapp_message(phone, reply)
         await message_service.log_message(db, phone, user.id, text, reply)
         return {"status": "ok", "bot_inactive": True}
 
-    # ── Limite diário de mensagens ───────────────────────────────────────────
     mensagens_hoje = await message_service.count_today(db, user.id)
     if mensagens_hoje >= config.limite_diario:
         reply = (
@@ -210,7 +213,6 @@ async def whatsapp_webhook(
         await message_service.log_message(db, phone, user.id, text, reply)
         return {"status": "ok", "limit_reached": True}
 
-    # ── Comandos pré-definidos ───────────────────────────────────────────────
     if commands_service.is_command(text):
         reply = await commands_service.handle_command(text, user, config, mensagens_hoje)
         if reply == "__LOGOUT__":
@@ -252,14 +254,12 @@ async def whatsapp_webhook(
             await message_service.log_message(db, phone, user.id, text, reply)
             return {"status": "ok", "type": "command"}
 
-    # ── Rate limiting por minuto ─────────────────────────────────────────────
     allowed, rate_msg = await check_rate_limit(redis, str(user.id))
     if not allowed:
         await send_whatsapp_message(phone, rate_msg)
         await message_service.log_message(db, phone, user.id, text, rate_msg)
         return {"status": "ok", "rate_limited": True}
 
-    # ── Processamento com IA via Celery ──────────────────────────────────────
     if config.ia_ativa:
         ia_hoje = await count_ai_today(db, user.id)
         if ia_hoje >= config.limite_ia_diario:

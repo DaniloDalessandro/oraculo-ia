@@ -19,7 +19,9 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --requirepass oraculo_redis_2024
+    command: redis-server --requirepass oraculo_redis_2024 --appendonly yes --appendfsync everysec
+    volumes:
+      - redis_data:/data
     ports:
       - "6379:6379"
     healthcheck:
@@ -115,8 +117,10 @@ services:
       WHATSAPP_WABA_ID: ${WHATSAPP_WABA_ID}
       WHATSAPP_APP_ID: ${WHATSAPP_APP_ID}
       WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET}
+      SECRET_KEY: ${SECRET_KEY}
     depends_on:
       - backend
 
 volumes:
   postgres_data:
+  redis_data:

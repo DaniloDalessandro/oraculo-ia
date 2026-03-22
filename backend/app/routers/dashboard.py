@@ -74,7 +74,6 @@ async def get_stats(
 
     whatsapp_conectado = await check_whatsapp_connected()
 
-    # Métricas de IA — single query com agregações (issue #10)
     from datetime import date, datetime, timezone
     today_start = datetime.combine(date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
 
@@ -91,7 +90,6 @@ async def get_stats(
     tempo_medio = float(ia_row.tempo_medio or 0.0)
     taxa_erro = round((total_erros / total_ia_hoje * 100) if total_ia_hoje else 0.0, 1)
 
-    # Cache stats
     cache_stats = await get_cache_stats(redis)
     hits = cache_stats.get("hits", 0)
     misses = cache_stats.get("misses", 0)

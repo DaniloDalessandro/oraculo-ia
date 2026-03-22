@@ -27,8 +27,7 @@ async def check_rate_limit(
 
     count = await redis.incr(key)
     if count == 1:
-        # Primeiro request nesta janela — define expiração
-        await redis.expire(key, 70)  # 10s de tolerância
+        await redis.expire(key, 70)  # 10s de tolerância além da janela de 60s
 
     limit = settings.RATE_LIMIT_PER_MINUTE + settings.RATE_LIMIT_BURST
 

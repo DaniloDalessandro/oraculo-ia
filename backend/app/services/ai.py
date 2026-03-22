@@ -1,190 +1,190 @@
-"""
-Serviço de IA usando LangChain + OpenAI.
+"""Agente de IA usando Groq + Tool Use."""
 
-Duas chains principais:
-  1. text_to_sql_chain  — pergunta + schema + histórico → SQL
-  2. format_response_chain — pergunta + dados SQL → resposta em PT-BR
-"""
-
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.language_models import BaseChatModel
-from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_groq import ChatGroq
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+import json
+from groq import AsyncGroq
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.services.sql_validator import ALLOWED_TABLES
-
-# ── Descrição do schema para o prompt de Text-to-SQL ────────────────────────
-
-SCHEMA_DESCRIPTION = """
-vendas(id,data_venda,produto,categoria,quantidade,valor_unitario,valor_total,cliente,vendedor,regiao,status_pagamento,forma_pagamento,created_at)
-messages(id,telefone,user_id,mensagem_usuario,resposta_sistema,created_at)
-users(id,email,nome,perfil,status_conta,created_at)
-sessions(id,telefone,status,user_id,authenticated_at,last_activity)
-user_configs(id,user_id,bot_ativo,limite_diario,ia_ativa,nome_assistente)
-ai_query_logs(id,user_id,telefone,pergunta_original,sql_gerado,tempo_execucao_ms,erro,created_at)
-
-vendas.status_pagamento: 'pago'|'pendente'|'cancelado'
-vendas.forma_pagamento: 'cartao'|'boleto'|'pix'
-users.perfil: 'admin'|'operador'|'cliente'
-sessions.status: 'nao_autenticado'|'aguardando_login'|'autenticado'
-""".strip()
-
-
-# ── Inicialização do LLM ─────────────────────────────────────────────────────
-
-def _build_llm(temperature: float | None = None) -> BaseChatModel:
-    temp = temperature if temperature is not None else settings.AI_TEMPERATURE
-    if settings.AI_PROVIDER == "groq":
-        return ChatGroq(
-            model=settings.GROQ_MODEL,
-            api_key=settings.GROQ_API_KEY,
-            temperature=temp,
-            max_tokens=settings.AI_MAX_TOKENS,
-        )
-    if settings.AI_PROVIDER == "gemini":
-        return ChatGoogleGenerativeAI(
-            model=settings.GEMINI_MODEL,
-            google_api_key=settings.GEMINI_API_KEY,
-            temperature=temp,
-            max_output_tokens=settings.AI_MAX_TOKENS,
-        )
-    return ChatOpenAI(
-        model=settings.OPENAI_MODEL,
-        api_key=settings.OPENAI_API_KEY,
-        temperature=temp,
-        max_tokens=settings.AI_MAX_TOKENS,
-    )
-
-
-# ── Chain 1: Text-to-SQL ─────────────────────────────────────────────────────
-
-_SQL_SYSTEM = """Você é um especialista em SQL PostgreSQL.
-Converta perguntas em linguagem natural para queries SQL de SOMENTE LEITURA.
-
-Schema disponível:
-{schema}
-
-Regras OBRIGATÓRIAS:
-- Use APENAS SELECT — nunca DELETE, UPDATE, INSERT, DROP ou ALTER
-- Use APENAS as tabelas descritas no schema acima
-- Adicione LIMIT se não houver (padrão: {row_limit})
-- Use funções nativas do PostgreSQL para datas
-- Retorne SOMENTE o SQL puro, sem explicações, sem markdown, sem ```
-- Se a pergunta for ambígua, gere o SQL mais seguro e útil possível
-- Para contagens simples, use COUNT(*)
-- Para "hoje", use CURRENT_DATE ou DATE_TRUNC('day', NOW())
-- Para "esta semana", use DATE_TRUNC('week', NOW())
-- Se a pergunta NÃO for sobre dados disponíveis no schema (ex: saudações, perguntas pessoais, temas fora do sistema), retorne exatamente: NO_DATA
-
-Histórico da conversa (use para resolver referências como "esse mesmo", "ontem", "aquele"):
-{history}"""
-
-_sql_prompt = ChatPromptTemplate.from_messages([
-    ("system", _SQL_SYSTEM),
-    ("human", "{question}"),
-])
-
-
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
-    retry=retry_if_exception_type(Exception),
-    reraise=True,
+from app.services.sql_executor import (
+    SQLExecutionError,
+    execute_safe,
+    format_result_for_prompt,
+    get_schema_and_tables,
 )
-async def generate_sql(question: str, history: str) -> str:
-    """Gera SQL a partir de pergunta em linguagem natural."""
-    llm = _build_llm()
-    chain = _sql_prompt | llm | StrOutputParser()
-    result = await chain.ainvoke({
-        "schema": SCHEMA_DESCRIPTION,
-        "row_limit": settings.AI_SQL_ROW_LIMIT,
-        "history": history,
-        "question": question,
-    })
-    return result.strip()
+from app.services.sql_validator import SQLValidationError, validate_and_prepare
 
+_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "executar_sql",
+            "description": (
+                "Executa uma consulta SQL SELECT no banco de dados PostgreSQL da empresa. "
+                "Use para buscar dados de qualquer tabela disponível. "
+                "Só aceita SELECT — nunca DELETE, UPDATE, INSERT ou DROP."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sql": {
+                        "type": "string",
+                        "description": (
+                            "Query SQL SELECT válida para PostgreSQL. "
+                            f"Limite padrão de {settings.AI_SQL_ROW_LIMIT} linhas. "
+                            "Use funções nativas do PostgreSQL para datas (CURRENT_DATE, DATE_TRUNC, etc)."
+                        ),
+                    }
+                },
+                "required": ["sql"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "obter_schema",
+            "description": (
+                "Retorna a estrutura completa e atualizada de todas as tabelas disponíveis "
+                "no banco de dados, incluindo colunas, tipos, PKs e FKs. "
+                "Use sempre que precisar confirmar nomes de colunas ou tabelas antes de gerar SQL."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            },
+        },
+    },
+]
 
-# ── Chain 2: Formatador de resposta ─────────────────────────────────────────
-
-_RESPONSE_SYSTEM = """Você é {nome_assistente}, um assistente corporativo inteligente acessado via WhatsApp.
-
-Seu papel é transformar dados brutos de banco de dados em respostas claras e naturais em português brasileiro.
-
-Nível de detalhe: {nivel_detalhe}
-- resumido: máximo 2 linhas, só o essencial
-- normal: resposta completa e objetiva, com os dados mais relevantes
-- detalhado: resposta completa com contexto, análise e insights adicionais
-
-Regras:
-- Responda sempre em português brasileiro
-- Use formatação WhatsApp: *negrito*, _itálico_, listas com •
-- Se não houver dados, diga claramente: "Não encontrei dados para essa consulta."
-- Seja preciso com números e datas
-- Não invente dados além do que foi retornado
-- Mantenha o tom profissional mas acessível"""
-
-_response_prompt = ChatPromptTemplate.from_messages([
-    ("system", _RESPONSE_SYSTEM),
-    ("human", "Pergunta do usuário: {question}\n\nDados retornados pelo banco:\n{data}\n\nResponda a pergunta acima de forma clara e útil."),
-])
-
-
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
-    retry=retry_if_exception_type(Exception),
-    reraise=True,
-)
-async def format_response(
+async def run_agent(
+    db: AsyncSession,
     question: str,
-    data: str,
+    history: list[dict],
     nome_assistente: str = "Assistente",
     nivel_detalhe: str = "normal",
+) -> tuple[str, str | None]:
+    """
+    Executa o loop do agente Groq com tool use.
+
+    Returns:
+        (resposta_final, ultimo_sql_executado_ou_None)
+    """
+    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+
+    try:
+        schema_str, allowed_tables = await get_schema_and_tables(db)
+    except Exception:
+        schema_str = "(schema indisponível — use a tool obter_schema para tentar novamente)"
+        allowed_tables = None
+
+    system_prompt = f"""Você é {nome_assistente}, um assistente corporativo inteligente acessado via WhatsApp.
+
+Você tem acesso a ferramentas para consultar o banco de dados PostgreSQL da empresa.
+Use as ferramentas sempre que a pergunta envolver dados.
+
+Nível de detalhe das respostas: {nivel_detalhe}
+  - resumido:  máximo 2 linhas, só o essencial
+  - normal:    resposta completa e objetiva com os dados relevantes
+  - detalhado: resposta completa com análise e insights adicionais
+
+Schema atual do banco:
+{schema_str}
+
+Regras obrigatórias:
+- Responda SEMPRE em português brasileiro
+- Use formatação WhatsApp: *negrito*, _itálico_, listas com •
+- Seja preciso com números, porcentagens e datas
+- Nunca invente dados além do que as ferramentas retornaram
+- Para saudações ou perguntas gerais sobre o sistema, responda diretamente sem usar ferramentas
+- Se uma consulta retornar erro, tente reformular o SQL antes de desistir
+- Use obter_schema se precisar confirmar colunas exatas de uma tabela"""
+
+    messages: list[dict] = [{"role": "system", "content": system_prompt}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": question})
+
+    last_sql: str | None = None
+    max_iterations = 8  # evita loop infinito
+
+    for _ in range(max_iterations):
+        response = await client.chat.completions.create(
+            model=settings.GROQ_MODEL,
+            messages=messages,
+            tools=_TOOLS,
+            tool_choice="auto",
+            max_tokens=settings.AI_MAX_TOKENS,
+            temperature=settings.AI_TEMPERATURE,
+        )
+
+        choice = response.choices[0]
+        msg = choice.message
+
+        msg_dict: dict = {"role": "assistant", "content": msg.content or ""}
+        if msg.tool_calls:
+            msg_dict["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                }
+                for tc in msg.tool_calls
+            ]
+        messages.append(msg_dict)
+
+        if not msg.tool_calls or choice.finish_reason == "stop":
+            return (msg.content or "Não consegui processar sua pergunta."), last_sql
+
+        for tc in msg.tool_calls:
+            tool_result = await _executar_ferramenta(
+                tc.function.name, tc.function.arguments, db, schema_str, allowed_tables
+            )
+
+            if tc.function.name == "executar_sql":
+                try:
+                    last_sql = json.loads(tc.function.arguments).get("sql")
+                except Exception:
+                    pass
+
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": tool_result,
+            })
+
+    return "Não consegui processar sua pergunta após várias tentativas.", last_sql
+
+
+async def _executar_ferramenta(
+    nome: str,
+    arguments_json: str,
+    db: AsyncSession,
+    schema_str: str,
+    allowed_tables: set[str] | None,
 ) -> str:
-    """Formata dados SQL em resposta amigável em português."""
-    llm = _build_llm(temperature=0.3)
-    chain = _response_prompt | llm | StrOutputParser()
-    result = await chain.ainvoke({
-        "nome_assistente": nome_assistente,
-        "nivel_detalhe": nivel_detalhe,
-        "question": question,
-        "data": data,
-    })
-    return result.strip()
+    """Despacha a chamada de ferramenta e retorna o resultado como string."""
+    try:
+        args = json.loads(arguments_json)
+    except Exception:
+        args = {}
 
+    if nome == "obter_schema":
+        try:
+            fresh_schema, _ = await get_schema_and_tables(db)
+            return fresh_schema
+        except Exception:
+            return schema_str
 
-# ── Chain 3: Fallback para perguntas sem SQL ─────────────────────────────────
+    if nome == "executar_sql":
+        sql = args.get("sql", "").strip()
+        if not sql:
+            return "Erro: SQL vazio."
+        try:
+            validated = validate_and_prepare(sql, allowed_tables)
+            result = await execute_safe(db, validated)
+            return format_result_for_prompt(result)
+        except SQLValidationError as e:
+            return f"Erro de validação: {e}. Reescreva a query usando apenas SELECT e as tabelas do schema."
+        except SQLExecutionError as e:
+            return f"Erro ao executar: {e}. Verifique a sintaxe e tente novamente."
 
-_GENERAL_SYSTEM = """Você é {nome_assistente}, um assistente corporativo via WhatsApp.
-
-Responda perguntas gerais sobre o sistema de forma útil e clara em português brasileiro.
-Você tem acesso a dados de mensagens, sessões e usuários do sistema.
-Use formatação WhatsApp: *negrito*, _itálico_.
-
-Histórico:
-{history}"""
-
-_general_prompt = ChatPromptTemplate.from_messages([
-    ("system", _GENERAL_SYSTEM),
-    ("human", "{question}"),
-])
-
-
-async def general_response(
-    question: str,
-    history: str,
-    nome_assistente: str = "Assistente",
-) -> str:
-    """Resposta geral para perguntas que não precisam de SQL."""
-    llm = _build_llm(temperature=0.5)
-    chain = _general_prompt | llm | StrOutputParser()
-    result = await chain.ainvoke({
-        "nome_assistente": nome_assistente,
-        "history": history,
-        "question": question,
-    })
-    return result.strip()
+    return f"Ferramenta desconhecida: {nome}"

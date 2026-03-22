@@ -97,7 +97,6 @@ async def atualizar_usuario(
     for field, value in updates.items():
         setattr(user, field, value)
 
-    # Mantém status_conta e is_active sincronizados
     if "status_conta" in updates:
         user.is_active = updates["status_conta"] == "ativo"
     if "is_active" in updates:
@@ -119,7 +118,6 @@ async def atualizar_usuario(
         ip=ip,
     )
 
-    # Envia e-mail de aprovação quando status muda de pendente → ativo
     if status_anterior == "pendente" and user.status_conta == "ativo":
         try:
             await send_account_approved_email(
@@ -150,7 +148,6 @@ async def deletar_usuario(
             detail="Não é possível excluir o próprio usuário",
         )
 
-    # Soft delete — preserva histórico de mensagens e logs (issue #9)
     email_deletado = user.email
     user.is_active = False
     user.status_conta = "inativo"

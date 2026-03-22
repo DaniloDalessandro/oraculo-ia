@@ -27,7 +27,6 @@ def expire_sessions_task():
 
 async def _async_expire() -> int:
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-    # Importa todos os modelos para configurar os mappers corretamente
     from app.models.user import User  # noqa: F401
     from app.models.session import Session  # noqa: F401
     from app.models.login_token import LoginToken  # noqa: F401
