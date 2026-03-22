@@ -54,21 +54,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build & push tunnel
-        uses: docker/build-push-action@v5
-        with:
-          context: ./tunnel
-          push: true
-          tags: |
-            ghcr.io/${{ steps.meta.outputs.owner }}/oraculo-ia-tunnel:latest
-            ghcr.io/${{ steps.meta.outputs.owner }}/oraculo-ia-tunnel:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       - name: Make GHCR packages public
         run: |
           OWNER="${{ steps.meta.outputs.owner }}"
-          for PKG in oraculo-ia-backend oraculo-ia-frontend oraculo-ia-tunnel; do
+          for PKG in oraculo-ia-backend oraculo-ia-frontend; do
             echo -n "Setting $PKG public: "
             curl -s -o /dev/null -w "%{http_code}\n" \
               -X PATCH \
@@ -122,9 +111,9 @@ jobs:
             grep "image:" docker-compose.yml | grep -v "postgres\|redis"
 
             # Pull e restart usando o project ID correto do Dokploy
-            docker compose -p "$PROJECT_ID" pull backend celery-worker flower frontend tunnel
+            docker compose -p "$PROJECT_ID" pull backend celery-worker flower frontend
             docker compose -p "$PROJECT_ID" up -d --no-deps --remove-orphans \
-              backend celery-worker flower frontend tunnel
+              backend celery-worker flower frontend
 
             echo "=== Deploy concluido ==="
             sleep 5
