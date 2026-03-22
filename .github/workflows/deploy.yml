@@ -97,6 +97,7 @@ jobs:
             set -e
             OWNER=$(echo "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')
 
+            # Encontrar compose e extrair project ID do Dokploy
             COMPOSE_FILE=$(find /etc/dokploy/compose -name "docker-compose.yml" 2>/dev/null \
               | xargs grep -l -i "oraculo" 2>/dev/null | head -1 || true)
 
@@ -105,19 +106,27 @@ jobs:
               exit 1
             fi
 
-            cd "$(dirname "$COMPOSE_FILE")"
+            COMPOSE_DIR=$(dirname "$COMPOSE_FILE")
+            # Project ID é o diretório pai do subdiretório code/
+            PROJECT_ID=$(basename "$(dirname "$COMPOSE_DIR")")
             echo "Compose: $COMPOSE_FILE"
+            echo "Project ID: $PROJECT_ID"
+            cd "$COMPOSE_DIR"
 
+            # Atualizar imagens para GHCR
             sed -i "s|image:.*oraculo-ia-backend.*|image: ghcr.io/$OWNER/oraculo-ia-backend:latest|g" docker-compose.yml
             sed -i "s|image:.*oraculo-ia-frontend.*|image: ghcr.io/$OWNER/oraculo-ia-frontend:latest|g" docker-compose.yml
             sed -i "s|image:.*oraculo-ia-tunnel.*|image: ghcr.io/$OWNER/oraculo-ia-tunnel:latest|g" docker-compose.yml
 
-            echo "=== Imagens no compose ==="
+            echo "=== Imagens atualizadas ==="
             grep "image:" docker-compose.yml | grep -v "postgres\|redis"
 
-            docker compose pull backend celery-worker flower frontend tunnel
-            docker compose up -d --no-deps --remove-orphans \
+            # Pull e restart usando o project ID correto do Dokploy
+            docker compose -p "$PROJECT_ID" pull backend celery-worker flower frontend tunnel
+            docker compose -p "$PROJECT_ID" up -d --no-deps --remove-orphans \
               backend celery-worker flower frontend tunnel
 
             echo "=== Deploy concluido ==="
-            docker ps --filter "name=oraculo" --format "table {{.Names}}\t{{.Status}}"
+            sleep 5
+            docker ps --filter "label=com.docker.compose.project=$PROJECT_ID" \
+              --format "table {{.Names}}\t{{.Status}}\t{{.Image}}" | grep -v "postgres\|redis"
