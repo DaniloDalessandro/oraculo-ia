@@ -152,20 +152,6 @@ services:
     depends_on:
       - backend
 
-  tunnel:
-    image: ghcr.io/danilodalessandro/oraculo-ia-tunnel:latest
-    restart: unless-stopped
-    environment:
-      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN}
-      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
-      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
-      WHATSAPP_API_VERSION: ${WHATSAPP_API_VERSION:-v18.0}
-      WHATSAPP_WABA_ID: ${WHATSAPP_WABA_ID}
-      WHATSAPP_APP_ID: ${WHATSAPP_APP_ID}
-      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET}
-      SECRET_KEY: ${SECRET_KEY}
-    depends_on:
-      - backend
 
 volumes:
   postgres_data:
