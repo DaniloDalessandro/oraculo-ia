@@ -102,6 +102,21 @@ services:
     depends_on:
       - backend
 
+  tunnel:
+    build:
+      context: ./tunnel
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
+      WHATSAPP_API_VERSION: ${WHATSAPP_API_VERSION}
+      WHATSAPP_WABA_ID: ${WHATSAPP_WABA_ID}
+      WHATSAPP_APP_ID: ${WHATSAPP_APP_ID}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET}
+    depends_on:
+      - backend
+
 volumes:
   postgres_data:
-  evolution_data:
