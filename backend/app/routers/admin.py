@@ -13,7 +13,7 @@ from app.models.audit_log import AuditLog
 from app.models.user import User
 from app.schemas.user import AdminUserCreate, AdminUserOut, AdminUserUpdate, AuditLogOut
 from app.services import auth as auth_service
-from app.services.email import send_welcome_email, send_account_approved_email
+from app.services.email import send_welcome_email
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ async def criar_usuario(
         nome=body.nome,
         setor=body.setor,
         perfil=body.perfil,
-        status_conta="pendente",
+        status_conta="ativo",
     )
     db.add(user)
     await db.commit()
@@ -117,16 +117,6 @@ async def atualizar_usuario(
         detalhes=f"atualizou {user.email}: {body.model_dump(exclude_none=True)}",
         ip=ip,
     )
-
-    if status_anterior == "pendente" and user.status_conta == "ativo":
-        try:
-            await send_account_approved_email(
-                user.email,
-                user.nome or user.email,
-                settings.APP_URL + "/login",
-            )
-        except Exception:
-            logger.warning("Falha ao enviar e-mail de aprovacao para %s", user.email)
 
     return user
 

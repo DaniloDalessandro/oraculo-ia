@@ -64,11 +64,6 @@ async def login(
 
     await redis.delete(attempts_key)
 
-    if user.status_conta == "pendente":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cadastro pendente de aprovação. Aguarde o administrador aprovar seu acesso.",
-        )
     if user.status_conta == "inativo" or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -149,11 +144,6 @@ async def verify_login_token(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciais inválidas ou usuário não cadastrado. Solicite acesso ao administrador.",
-        )
-    if user.status_conta == "pendente":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cadastro pendente de aprovação. Aguarde o administrador aprovar seu acesso.",
         )
     if user.status_conta == "inativo" or not user.is_active:
         raise HTTPException(

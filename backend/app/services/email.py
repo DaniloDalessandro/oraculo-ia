@@ -72,13 +72,9 @@ async def send_welcome_email(to_email: str, nome: str, login_url: str) -> None:
     body = f"""
     <div style="padding:32px;">
       <h2 style="color:#fff;font-size:18px;margin:0 0 12px;">Sua conta foi criada!</h2>
-      <p style="color:#9ca3af;font-size:14px;line-height:1.6;margin:0 0 16px;">
-        Ola, <strong style="color:#fff;">{nome}</strong>!
-        Sua conta no Oraculo IA foi criada pelo administrador.
-      </p>
       <p style="color:#9ca3af;font-size:14px;line-height:1.6;margin:0 0 24px;">
-        Sua conta esta <strong style="color:#facc15;">pendente de aprovacao</strong>.
-        Assim que o administrador aprovar, voce receberá uma notificacao e podra acessar a plataforma.
+        Ola, <strong style="color:#fff;">{nome}</strong>!
+        Sua conta no Oraculo IA foi criada pelo administrador. Voce ja pode acessar a plataforma.
       </p>
       <div style="text-align:center;">
         <a href="{login_url}"
@@ -92,21 +88,3 @@ async def send_welcome_email(to_email: str, nome: str, login_url: str) -> None:
     await _send(_build_msg(to_email, "Conta criada no Oraculo IA", body))
 
 
-async def send_account_approved_email(to_email: str, nome: str, login_url: str) -> None:
-    body = f"""
-    <div style="padding:32px;">
-      <h2 style="color:#fff;font-size:18px;margin:0 0 12px;">Conta aprovada!</h2>
-      <p style="color:#9ca3af;font-size:14px;line-height:1.6;margin:0 0 24px;">
-        Ola, <strong style="color:#fff;">{nome}</strong>!
-        Sua conta foi aprovada pelo administrador. Voce ja pode acessar a plataforma.
-      </p>
-      <div style="text-align:center;">
-        <a href="{login_url}"
-           style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;
-                  padding:14px 32px;border-radius:10px;font-size:14px;font-weight:600;">
-          Fazer login agora
-        </a>
-      </div>
-    </div>
-    """
-    await _send(_build_msg(to_email, "Conta aprovada — Oraculo IA", body))

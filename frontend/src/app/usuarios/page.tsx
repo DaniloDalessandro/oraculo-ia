@@ -10,12 +10,10 @@ import { apiFetch, getToken, type AdminUser, type AdminUserCreate } from "@/lib/
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     ativo: "bg-green-500/15 text-green-400 border-green-500/20",
-    pendente: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20",
     inativo: "bg-red-500/15 text-red-400 border-red-500/20",
   };
   const labels: Record<string, string> = {
     ativo: "Ativo",
-    pendente: "Pendente",
     inativo: "Inativo",
   };
   const cls = styles[status] ?? "bg-gray-500/15 text-gray-400 border-gray-500/20";
@@ -338,15 +336,6 @@ export default function UsuariosPage() {
                           <td className="px-5 py-4">
                             <div className="flex items-center justify-end gap-2">
                               {/* Status action button */}
-                              {user.status_conta === "pendente" && (
-                                <button
-                                  onClick={() => handleStatusChange(user.id, "ativo")}
-                                  disabled={!!isLoading}
-                                  className="px-2.5 py-1 bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/20 rounded text-xs font-medium transition-colors disabled:opacity-50"
-                                >
-                                  Aprovar
-                                </button>
-                              )}
                               {user.status_conta === "ativo" && (
                                 <button
                                   onClick={() => handleStatusChange(user.id, "inativo")}
