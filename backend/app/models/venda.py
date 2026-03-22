@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Integer, Numeric, String
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,6 +22,9 @@ class Venda(Base):
     valor_total: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     cliente: Mapped[str] = mapped_column(String(100), nullable=False)
     vendedor: Mapped[str] = mapped_column(String(100), nullable=False)
+    vendedor_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("vendedores.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     regiao: Mapped[str] = mapped_column(String(50), nullable=False)
     status_pagamento: Mapped[str] = mapped_column(String(20), nullable=False)
     forma_pagamento: Mapped[str] = mapped_column(String(30), nullable=False)
