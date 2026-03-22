@@ -17,10 +17,39 @@ logger = logging.getLogger(__name__)
 _APP_URL_REDIS_KEY = "app:frontend_url"
 
 
+async def _create_initial_admin():
+    """Cria o admin inicial se nenhum usuário existir e ADMIN_EMAIL estiver configurado."""
+    if not settings.ADMIN_EMAIL or not settings.ADMIN_SENHA:
+        return
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy import select, func
+    from app.models.user import User
+    from app.core.security import hash_password
+    async with engine.begin() as conn:
+        result = await conn.execute(select(func.count()).select_from(User.__table__))
+        count = result.scalar()
+    if count and count > 0:
+        return
+    from app.database import AsyncSessionLocal
+    async with AsyncSessionLocal() as session:
+        admin = User(
+            email=settings.ADMIN_EMAIL,
+            senha_hash=hash_password(settings.ADMIN_SENHA),
+            nome="Admin",
+            perfil="administrador",
+            status_conta="ativo",
+            is_active=True,
+        )
+        session.add(admin)
+        await session.commit()
+    logger.info("Admin inicial criado: %s", settings.ADMIN_EMAIL)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    await _create_initial_admin()
     await init_redis()
 
     from app.redis_client import get_redis as _get_redis

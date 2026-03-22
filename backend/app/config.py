@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     LOGIN_LOCKOUT_SECONDS: int = 900          # 15 minutos
     WHATSAPP_SESSION_EXPIRE_HOURS: int = 24   # sessões inativas expiram em 24h
 
+    ADMIN_EMAIL: str = ""
+    ADMIN_SENHA: str = ""
+    WHATSAPP_WABA_ID: str = ""
+    WHATSAPP_APP_ID: str = ""
 
 
 settings = Settings()

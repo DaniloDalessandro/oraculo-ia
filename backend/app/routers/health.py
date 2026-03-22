@@ -19,6 +19,19 @@ class AppUrlPayload(BaseModel):
     url: str
 
 
+@router.get("/internal/app-url")
+async def get_app_url(
+    authorization: str | None = Header(default=None),
+    redis: aioredis.Redis = Depends(get_redis),
+):
+    """Retorna APP_URL atual (chamado pelo administrador para diagnóstico)."""
+    expected = f"Bearer {settings.SECRET_KEY}"
+    if authorization != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    cached = await redis.get(_APP_URL_REDIS_KEY)
+    return {"app_url": settings.APP_URL, "redis_url": cached}
+
+
 @router.post("/internal/set-app-url")
 async def set_app_url(
     payload: AppUrlPayload,
