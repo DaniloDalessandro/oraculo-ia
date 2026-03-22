@@ -606,7 +606,7 @@ export default function DashboardPage() {
             </button>
 
             <button
-              onClick={() => toast("Mensagem de teste enviada via Evolution API.", "ok")}
+              onClick={() => toast("Mensagem de teste enviada via WhatsApp API.", "ok")}
               className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-blue-500 active:scale-95"
             >
               <Send className="h-3.5 w-3.5" />
@@ -663,7 +663,7 @@ export default function DashboardPage() {
               <KpiCard
                 label="WhatsApp"
                 value={stats.whatsapp_conectado ? "Online" : "Offline"}
-                sub={stats.whatsapp_conectado ? "Evolution API ativa" : "Verifique a conexão"}
+                sub={stats.whatsapp_conectado ? "Meta Cloud API ativa" : "Verifique a conexão"}
                 icon={stats.whatsapp_conectado
                   ? <Wifi className="h-4 w-4 text-emerald-400" />
                   : <WifiOff className="h-4 w-4 text-red-400" />}
@@ -787,7 +787,7 @@ export default function DashboardPage() {
 
                 <SvcRow name="WhatsApp API"
                   status={stats.whatsapp_conectado ? "ok" : "err"}
-                  detail="Evolution API" />
+                  detail="Meta Cloud API" />
                 <SvcRow name="Workers Celery"
                   status={stats.workers_ativos > 0 ? "ok" : "warn"}
                   detail={`${stats.workers_ativos} ativo${stats.workers_ativos !== 1 ? "s" : ""}`} />
