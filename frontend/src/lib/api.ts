@@ -144,3 +144,29 @@ export interface AdminUserCreate {
   setor: string;
   perfil: string;
 }
+
+export interface SystemSettings {
+  // IA — comportamento
+  ai_provider: string;
+  ai_max_tokens: number;
+  ai_temperature: number;
+  ai_context_size: number;
+  ai_sql_row_limit: number;
+  ai_timeout_seconds: number;
+  ai_cache_enabled: boolean;
+  ai_cache_ttl_seconds: number;
+  // Modelos
+  groq_model: string;
+  gemini_model: string;
+  openai_model: string;
+  // Rate limiting
+  rate_limit_per_minute: number;
+  rate_limit_burst: number;
+  // Sessão / WhatsApp
+  whatsapp_session_expire_hours: number;
+  // Segurança de login
+  login_max_attempts: number;
+  login_lockout_seconds: number;
+}
+
+export type SystemSettingsUpdate = Partial<SystemSettings>;

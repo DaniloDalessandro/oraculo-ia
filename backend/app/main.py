@@ -7,9 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import Base, engine
 from app.redis_client import close_redis, init_redis
-from app.routers import admin, ai_logs, auth, dashboard, health, messages, settings as settings_router, webhook
+from app.routers import admin, admin_settings as admin_settings_router, ai_logs, auth, dashboard, health, messages, settings as settings_router, webhook
 
 import app.models.audit_log  # noqa: F401
+import app.models.admin_setting  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,15 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     await _create_initial_admin()
     await init_redis()
+
+    # Carregar configurações de sistema do banco (sobrescreve env vars)
+    from app.database import AsyncSessionLocal
+    from app.services import admin_settings as _admin_svc
+    async with AsyncSessionLocal() as _db:
+        _db_overrides = await _admin_svc.load_from_db(_db)
+        _admin_svc.apply_to_runtime(_db_overrides)
+        if _db_overrides:
+            logger.info("Configurações de sistema carregadas do banco: %d chaves", len(_db_overrides))
 
     from app.redis_client import get_redis as _get_redis
     _redis = await _get_redis()
@@ -124,6 +134,7 @@ app.include_router(health.router)
 app.include_router(webhook.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(admin_settings_router.router)
 app.include_router(dashboard.router)
 app.include_router(settings_router.router)
 app.include_router(messages.router)
