@@ -86,7 +86,12 @@ function LoginForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError((data as ApiError).detail || "Erro ao verificar token.");
+        const detail = (data as ApiError).detail || "Erro ao verificar token.";
+        if (res.status === 400 && detail.toLowerCase().includes("invalido")) {
+          setError("Link expirado ou já utilizado. Envie qualquer mensagem no WhatsApp para receber um novo link de acesso.");
+        } else {
+          setError(detail);
+        }
         return;
       }
 
@@ -260,8 +265,14 @@ function LoginForm() {
           </div>
           <span className="text-white font-bold text-xl tracking-tight">CBS</span>
         </div>
-        <h1 className="text-2xl font-bold text-white">Gestão de Estoque</h1>
-        <p className="text-gray-400 text-sm mt-1">Acesse sua conta para continuar</p>
+        <h1 className="text-2xl font-bold text-white">
+          {isWhatsAppFlow ? "Confirmar identidade" : "Gestão de Estoque"}
+        </h1>
+        <p className="text-gray-400 text-sm mt-1">
+          {isWhatsAppFlow
+            ? "Digite suas credenciais de acesso ao sistema"
+            : "Acesse sua conta para continuar"}
+        </p>
       </div>
 
       {/* Erro */}
