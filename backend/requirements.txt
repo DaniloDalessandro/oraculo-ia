@@ -32,3 +32,4 @@ flower==2.0.1
 psutil==6.1.1
 python-json-logger==2.0.7
 aiofiles==24.1.0
+psycopg2-binary==2.9.9

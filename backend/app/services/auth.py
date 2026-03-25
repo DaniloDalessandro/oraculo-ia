@@ -165,13 +165,15 @@ async def expire_whatsapp_sessions(db: AsyncSession) -> int:
 async def link_user_to_session(
     db: AsyncSession, telefone: str, user_id
 ) -> None:
+    now = datetime.now(timezone.utc)
     await db.execute(
         update(Session)
         .where(Session.telefone == telefone)
         .values(
             user_id=user_id,
             status=SessionStatus.autenticado,
-            authenticated_at=datetime.now(timezone.utc),
+            authenticated_at=now,
+            last_activity=now,
         )
     )
     await db.commit()

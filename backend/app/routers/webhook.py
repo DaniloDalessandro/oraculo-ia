@@ -165,12 +165,22 @@ async def whatsapp_webhook(
             age = datetime.now(timezone.utc) - ref_utc
             expire_hours = getattr(settings, "WHATSAPP_SESSION_EXPIRE_HOURS", 24)
             if age > timedelta(hours=expire_hours):
-                await session_service.set_session_status(redis, phone, "nao_autenticado")
+                await session_service.set_session_status(redis, phone, "aguardando_login")
+                await auth_service.get_or_create_session(db, phone)
+                token = await auth_service.create_login_token(db, phone)
+                login_url = f"{settings.APP_URL}/login?token={token.token}"
                 reply = (
                     "⏳ *Sessão expirada por inatividade.*\n\n"
-                    "Envie qualquer mensagem para receber um novo link de acesso."
+                    "Toque no botão abaixo para fazer login novamente.\n\n"
+                    f"⏱ _Link válido por {settings.LOGIN_TOKEN_EXPIRE_MINUTES} minutos._"
                 )
-                await send_whatsapp_message(phone, reply)
+                await send_whatsapp_cta_url(
+                    phone=phone,
+                    body=reply,
+                    button_text="🔑 Fazer Login",
+                    url=login_url,
+                    footer="Oráculo IA",
+                )
                 await message_service.log_message(db, phone, None, message_text or "", reply)
                 return {"status": "ok", "session_expired": True}
 
@@ -182,9 +192,22 @@ async def whatsapp_webhook(
     await db.commit()
 
     if not user:
-        reply = "⚠️ *Sessão expirada.*\n\nEnvie qualquer mensagem para receber um novo link de acesso."
-        await send_whatsapp_message(phone, reply)
-        await session_service.set_session_status(redis, phone, "nao_autenticado")
+        await session_service.set_session_status(redis, phone, "aguardando_login")
+        await auth_service.get_or_create_session(db, phone)
+        token = await auth_service.create_login_token(db, phone)
+        login_url = f"{settings.APP_URL}/login?token={token.token}"
+        reply = (
+            "⚠️ *Sessão expirada.*\n\n"
+            "Toque no botão abaixo para fazer login novamente.\n\n"
+            f"⏱ _Link válido por {settings.LOGIN_TOKEN_EXPIRE_MINUTES} minutos._"
+        )
+        await send_whatsapp_cta_url(
+            phone=phone,
+            body=reply,
+            button_text="🔑 Fazer Login",
+            url=login_url,
+            footer="Oráculo IA",
+        )
         await message_service.log_message(db, phone, None, message_text or "", reply)
         return {"status": "ok", "session_expired": True}
 
