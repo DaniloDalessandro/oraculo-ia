@@ -120,24 +120,15 @@ jobs:
             docker ps --filter "label=com.docker.compose.project=$PROJECT_ID" \
               --format "table {{.Names}}\t{{.Status}}\t{{.Image}}" | grep -v "postgres\|redis"
 
-            # Seed vendedores e vendas se as tabelas estiverem vazias
+            # Seed vendedores e vendas (só roda se tabela estiver vazia)
             echo "=== Verificando seed de vendas ==="
-            COUNT=$(docker compose -p "$PROJECT_ID" exec -T backend \
-              python -c "
-import asyncio, os
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy import text
-async def main():
-    e = create_async_engine(os.environ['DATABASE_URL'])
-    async with e.connect() as c:
-        r = await c.execute(text('SELECT COUNT(*) FROM vendas'))
-        print(r.scalar())
-asyncio.run(main())
-" 2>/dev/null || echo "0")
+            DB=$(docker compose -p "$PROJECT_ID" ps -q db | head -1)
+            COUNT=$(docker exec "$DB" psql -U postgres -d oraculo -tAc "SELECT COUNT(*) FROM vendas" 2>/dev/null || echo "0")
             echo "Vendas no banco: $COUNT"
             if [ "$COUNT" = "0" ]; then
-              echo "Rodando seed de vendas..."
-              docker compose -p "$PROJECT_ID" exec -T backend python seed_vendas.py
+              echo "Rodando seed..."
+              BACKEND=$(docker compose -p "$PROJECT_ID" ps -q backend | head -1)
+              docker exec "$BACKEND" python seed_vendas.py
             else
-              echo "Seed já realizado, pulando."
+              echo "Seed ja realizado, pulando."
             fi
