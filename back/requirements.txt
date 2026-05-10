@@ -1,0 +1,21 @@
+asgiref==3.11.1
+Django==6.0.5
+django-cors-headers==4.9.0
+djangorestframework==3.17.1
+djangorestframework_simplejwt==5.5.1
+psycopg[binary]==3.2.13
+PyJWT==2.12.1
+sqlparse==0.5.3
+tzdata==2026.2
+
+# AI Agent
+langchain>=0.3
+langchain-core>=0.3
+langchain-openai>=0.2
+python-dotenv>=1.0
+
+# Cache & Memory
+redis>=5.0
+
+# Web Search (External Intelligence Skill)
+duckduckgo-search>=6.0
