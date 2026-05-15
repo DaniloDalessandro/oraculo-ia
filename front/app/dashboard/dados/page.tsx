@@ -6,6 +6,8 @@ import { Separator } from "@/components/ui/separator"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 
+const HIDDEN_TABLES = new Set(["atracacoes_navio", "cargas_atracacao"])
+
 interface TableMeta {
   name: string
   columns: { name: string }[]
@@ -33,14 +35,21 @@ export default function DadosPage() {
   const [dataLoading, setDataLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Column visibility
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set())
+  const [showColPanel, setShowColPanel] = useState(false)
+
   // Load schema once
   useEffect(() => {
     fetch("/api/schema")
       .then((r) => r.json())
       .then((d) => {
         if (d.tables) {
-          setTables(d.tables)
-          if (d.tables.length > 0) setSelectedTable(d.tables[0].name)
+          const filtered = (d.tables as TableMeta[]).filter(
+            (t) => !HIDDEN_TABLES.has(t.name)
+          )
+          setTables(filtered)
+          if (filtered.length > 0) setSelectedTable(filtered[0].name)
         }
       })
       .finally(() => setSchemaLoading(false))
@@ -68,6 +77,8 @@ export default function DadosPage() {
       setPage(1)
       setData(null)
       setSearch("")
+      setHiddenCols(new Set())
+      setShowColPanel(false)
     }
   }, [selectedTable])
 
@@ -84,6 +95,17 @@ export default function DadosPage() {
     }, 400)
     return () => clearTimeout(t)
   }, [search]) // eslint-disable-line
+
+  const visibleCols = data ? data.columns.filter((c) => !hiddenCols.has(c)) : []
+
+  const toggleCol = (col: string) => {
+    setHiddenCols((prev) => {
+      const next = new Set(prev)
+      if (next.has(col)) next.delete(col)
+      else next.add(col)
+      return next
+    })
+  }
 
   const currentTable = tables.find((t) => t.name === selectedTable)
 
@@ -130,12 +152,63 @@ export default function DadosPage() {
               />
 
               {data && (
+                <button
+                  onClick={() => setShowColPanel((v) => !v)}
+                  className="h-9 px-3 rounded-md text-sm border border-white/10 text-white/50 hover:text-white transition-colors"
+                >
+                  Colunas {hiddenCols.size > 0 && <span className="ml-1 text-xs text-[#0070d1]">({hiddenCols.size} oculta{hiddenCols.size !== 1 ? "s" : ""})</span>}
+                </button>
+              )}
+
+              {data && (
                 <span className="ml-auto text-xs text-white/30">
                   {data.total.toLocaleString("pt-BR")} linhas
-                  {currentTable && ` · ${currentTable.columns.length} colunas`}
+                  {currentTable && ` · ${visibleCols.length}/${data.columns.length} colunas`}
                 </span>
               )}
             </div>
+
+            {/* Column visibility panel */}
+            {showColPanel && data && (
+              <div className="shrink-0 rounded-lg border border-white/10 bg-[#0d0e0f] p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-medium text-white/50 uppercase tracking-wider">Visibilidade das colunas</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setHiddenCols(new Set())}
+                      className="text-xs text-white/40 hover:text-white transition-colors"
+                    >
+                      Mostrar todas
+                    </button>
+                    <span className="text-white/20">·</span>
+                    <button
+                      onClick={() => setHiddenCols(new Set(data.columns))}
+                      className="text-xs text-white/40 hover:text-white transition-colors"
+                    >
+                      Ocultar todas
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {data.columns.map((col) => {
+                    const visible = !hiddenCols.has(col)
+                    return (
+                      <button
+                        key={col}
+                        onClick={() => toggleCol(col)}
+                        className={`h-7 px-2.5 rounded text-xs border transition-colors ${
+                          visible
+                            ? "border-[#0070d1]/40 bg-[#0070d1]/10 text-[#4da3ff]"
+                            : "border-white/8 bg-transparent text-white/25 line-through"
+                        }`}
+                      >
+                        {col}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {error && (
               <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 shrink-0">{error}</div>
@@ -154,7 +227,7 @@ export default function DadosPage() {
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-[#0d0e0f] border-b border-white/8">
                       <th className="px-3 py-2.5 text-left text-xs font-medium text-white/30 w-10 shrink-0">#</th>
-                      {data.columns.map((col) => (
+                      {visibleCols.map((col) => (
                         <th key={col} className="px-3 py-2.5 text-left text-xs font-medium text-white/50 whitespace-nowrap">
                           {col}
                         </th>
@@ -167,7 +240,7 @@ export default function DadosPage() {
                         <td className="px-3 py-2 text-white/20 text-xs">
                           {(data.page - 1) * data.page_size + i + 1}
                         </td>
-                        {data.columns.map((col) => (
+                        {visibleCols.map((col) => (
                           <td key={col} className="px-3 py-2 text-white/70 text-xs whitespace-nowrap max-w-xs truncate">
                             {row[col] === null ? (
                               <span className="text-white/20 italic">null</span>

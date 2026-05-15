@@ -107,15 +107,15 @@ export function ChatChartRenderer({ config }: Props) {
   }
 
   return (
-    <div className="mt-3 rounded-xl border bg-card p-4 space-y-2">
+    <div className="mt-3 rounded-xl border border-gray-200 bg-white p-4 space-y-2">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div>
           {config.title && (
-            <p className="text-sm font-semibold leading-tight">{config.title}</p>
+            <p className="text-sm font-semibold leading-tight text-gray-900">{config.title}</p>
           )}
           {config.description && (
-            <p className="text-xs text-muted-foreground mt-0.5">{config.description}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{config.description}</p>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -158,7 +158,7 @@ export function ChatChartRenderer({ config }: Props) {
 
       {/* Warnings */}
       {config.warnings && config.warnings.length > 0 && (
-        <div className="flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+        <div className="flex items-start gap-1.5 text-xs text-amber-600">
           <AlertTriangle className="size-3.5 mt-0.5 shrink-0" />
           <span>{config.warnings[0]}</span>
         </div>
@@ -174,7 +174,7 @@ export function ChatChartRenderer({ config }: Props) {
       </div>
 
       {/* Point count */}
-      <p className="text-[11px] text-muted-foreground text-right">
+      <p className="text-[11px] text-gray-400 text-right">
         {config.data.length} {config.data.length === 1 ? "ponto" : "pontos"} de dados
       </p>
     </div>

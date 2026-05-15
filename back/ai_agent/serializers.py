@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import PortKnowledgeBase, PortGlossary, PortBusinessRule
+from .models import PortKnowledgeBase, PortGlossary, PortBusinessRule, Atracacao
 
 
 class PortKnowledgeBaseSerializer(serializers.ModelSerializer):
@@ -35,3 +35,20 @@ class PortBusinessRuleSerializer(serializers.ModelSerializer):
             "is_active", "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+
+class AtracacaoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Atracacao
+        fields = [
+            "id", "operacaomodalid", "numero_atracacao", "status", "berco",
+            "navio", "imo", "comprimento", "largura", "dwt", "duv", "escala",
+            "bordo", "calado_entrada", "calado_saida", "navegacao", "agencia",
+            "procedencia", "destino", "bandeira",
+            "eta", "etb", "nor", "prontidao", "atracacao", "inicio_operacao",
+            "termino_operacao", "desatracacao", "ets", "entremanobra",
+            "is_improdutividade", "horas_planejadas", "prancha",
+            "excludente_emap", "excludente_intemperie", "excl_emap_lm", "excl_intemperie_lm",
+            "prox_atracacao", "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]

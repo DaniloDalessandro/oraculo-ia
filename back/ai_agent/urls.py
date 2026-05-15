@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("stats/", views.dashboard_stats, name="ai-agent-stats"),
     path("ask/", views.ask, name="ai-agent-ask"),
     path("feedback/", views.feedback, name="ai-agent-feedback"),
     path("schema/", views.schema_info, name="ai-agent-schema"),
@@ -16,4 +17,7 @@ urlpatterns = [
     path("glossary/<int:pk>/", views.glossary_detail, name="ai-agent-glossary-detail"),
     path("rules/", views.rules_list, name="ai-agent-rules-list"),
     path("rules/<int:pk>/", views.rules_detail, name="ai-agent-rules-detail"),
+    # Atracações CRUD
+    path("atracacoes/", views.atracacao_list, name="ai-agent-atracacao-list"),
+    path("atracacoes/<int:pk>/", views.atracacao_detail, name="ai-agent-atracacao-detail"),
 ]

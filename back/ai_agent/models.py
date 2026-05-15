@@ -194,6 +194,89 @@ class PortBusinessRule(models.Model):
         return f"[{self.get_rule_type_display()}] {self.rule_name}"
 
 
+class Atracacao(models.Model):
+    """Atracações importadas do sistema operacional (xlsx)."""
+
+    operacaomodalid = models.BigIntegerField(unique=True, verbose_name="ID Operação Modal")
+    numero_atracacao = models.IntegerField(null=True, blank=True, verbose_name="Número Atracação")
+    status = models.CharField(max_length=50, null=True, blank=True, verbose_name="Status")
+    berco = models.CharField(max_length=100, null=True, blank=True, verbose_name="Berço")
+    navio = models.CharField(max_length=255, null=True, blank=True, verbose_name="Navio")
+    imo = models.CharField(max_length=20, null=True, blank=True, verbose_name="IMO")
+    comprimento = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Comprimento (m)")
+    largura = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Largura (m)")
+    dwt = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True, verbose_name="DWT")
+    duv = models.CharField(max_length=100, null=True, blank=True, verbose_name="DUV")
+    escala = models.CharField(max_length=100, null=True, blank=True, verbose_name="Escala")
+    bordo = models.CharField(max_length=50, null=True, blank=True, verbose_name="Bordo")
+    calado_entrada = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, verbose_name="Calado Entrada (m)")
+    calado_saida = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, verbose_name="Calado Saída (m)")
+    navegacao = models.CharField(max_length=100, null=True, blank=True, verbose_name="Navegação")
+    agencia = models.CharField(max_length=255, null=True, blank=True, verbose_name="Agência")
+    procedencia = models.CharField(max_length=255, null=True, blank=True, verbose_name="Procedência")
+    destino = models.CharField(max_length=255, null=True, blank=True, verbose_name="Destino")
+    bandeira = models.CharField(max_length=100, null=True, blank=True, verbose_name="Bandeira")
+    eta = models.DateTimeField(null=True, blank=True, verbose_name="ETA")
+    etb = models.DateTimeField(null=True, blank=True, verbose_name="ETB")
+    nor = models.DateTimeField(null=True, blank=True, verbose_name="NOR")
+    prontidao = models.DateTimeField(null=True, blank=True, verbose_name="Prontidão")
+    atracacao = models.DateTimeField(null=True, blank=True, verbose_name="Atracação")
+    inicio_operacao = models.DateTimeField(null=True, blank=True, verbose_name="Início Operação")
+    termino_operacao = models.DateTimeField(null=True, blank=True, verbose_name="Término Operação")
+    desatracacao = models.DateTimeField(null=True, blank=True, verbose_name="Desatracação")
+    ets = models.DateTimeField(null=True, blank=True, verbose_name="ETS")
+    entremanobra = models.DateTimeField(null=True, blank=True, verbose_name="Entre Manobra")
+    is_improdutividade = models.BooleanField(null=True, blank=True, verbose_name="É Improdutividade")
+    horas_planejadas = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Horas Planejadas")
+    prancha = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Prancha")
+    excludente_emap = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Excludente EMAP")
+    excludente_intemperie = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Excludente Intempérie")
+    excl_emap_lm = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Excl. EMAP LM")
+    excl_intemperie_lm = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Excl. Intempérie LM")
+    prox_atracacao = models.DateTimeField(null=True, blank=True, verbose_name="Próxima Atracação")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "atracacoes"
+        ordering = ["operacaomodalid"]
+        verbose_name = "Atracação"
+        verbose_name_plural = "Atracações"
+
+    def __str__(self):
+        return f"Atracação {self.numero_atracacao} — {self.navio}"
+
+
+class Mercadoria(models.Model):
+    """Mercadorias importadas do sistema operacional (xlsx)."""
+
+    mercadoria_id = models.BigIntegerField(unique=True, verbose_name="ID Mercadoria")
+    atracacao_id = models.BigIntegerField(null=True, blank=True, verbose_name="ID Atracação (operacaomodalid)")
+    nome = models.CharField(max_length=255, null=True, blank=True, verbose_name="Nome")
+    gm = models.CharField(max_length=255, null=True, blank=True, verbose_name="Grupo de Mercadoria")
+    natureza_tipo = models.CharField(max_length=150, null=True, blank=True, verbose_name="Natureza Tipo")
+    natureza_subtipo = models.CharField(max_length=150, null=True, blank=True, verbose_name="Natureza Subtipo")
+    operacao = models.CharField(max_length=100, null=True, blank=True, verbose_name="Operação")
+    sentido = models.CharField(max_length=100, null=True, blank=True, verbose_name="Sentido")
+    operador = models.CharField(max_length=255, null=True, blank=True, verbose_name="Operador")
+    cliente = models.CharField(max_length=255, null=True, blank=True, verbose_name="Cliente")
+    pbm = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True, verbose_name="PBM")
+    plr = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True, verbose_name="PLR")
+    qtdm = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True, verbose_name="QTDM")
+    qtdr = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True, verbose_name="QTDR")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "mercadorias"
+        ordering = ["mercadoria_id"]
+        verbose_name = "Mercadoria"
+        verbose_name_plural = "Mercadorias"
+
+    def __str__(self):
+        return f"Mercadoria {self.mercadoria_id} — {self.nome}"
+
+
 class UserAIPreferences(models.Model):
     """Preferências de cada usuário para o agente."""
 

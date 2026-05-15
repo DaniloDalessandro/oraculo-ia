@@ -11,5 +11,13 @@ export const CHART_COLORS = [
   "#34d399", // green
 ]
 
-export const GRID_COLOR = "hsl(var(--border))"
-export const TICK_COLOR = "hsl(var(--muted-foreground))"
+export const GRID_COLOR = "#e5e7eb"
+export const TICK_COLOR = "#6b7280"
+
+export const TOOLTIP_STYLE = {
+  fontSize: 12,
+  borderRadius: 8,
+  border: "1px solid #e5e7eb",
+  background: "#ffffff",
+  color: "#111827",
+} as const

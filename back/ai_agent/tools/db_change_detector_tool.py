@@ -33,34 +33,25 @@ _IGNORED_PREFIXES = (
 )
 
 
-def _get_data_tables() -> List[str]:
-    """Retorna tabelas de dados (exclui tabelas de sistema)."""
+def _get_row_estimates() -> Dict[str, int]:
+    """
+    Retorna estimativas de linhas por tabela usando pg_stat_user_tables.
+    Uma única query vs N COUNT(*) — muito mais rápido.
+    Estimativas são suficientes para detecção de mudança.
+    """
     with connection.cursor() as cursor:
         cursor.execute("""
-            SELECT tablename FROM pg_tables
+            SELECT relname, n_live_tup
+            FROM pg_stat_user_tables
             WHERE schemaname = 'public'
-            ORDER BY tablename
+            ORDER BY relname
         """)
         rows = cursor.fetchall()
 
-    tables = []
-    for (name,) in rows:
-        if not any(name.startswith(p) for p in _IGNORED_PREFIXES):
-            tables.append(name)
-    return tables
-
-
-def _count_rows(tables: List[str]) -> Dict[str, int]:
-    """Conta linhas de cada tabela com uma query por vez."""
     counts: Dict[str, int] = {}
-    with connection.cursor() as cursor:
-        for table in tables:
-            try:
-                cursor.execute(f"SELECT COUNT(*) FROM {table}")  # noqa: S608
-                counts[table] = cursor.fetchone()[0]
-            except Exception as exc:
-                logger.warning("db_change_detector: erro ao contar '%s': %s", table, exc)
-                counts[table] = -1
+    for name, n_live in rows:
+        if not any(name.startswith(p) for p in _IGNORED_PREFIXES):
+            counts[name] = int(n_live or 0)
     return counts
 
 
@@ -83,8 +74,7 @@ def detect_db_changes() -> Dict[str, Any]:
         logger.debug("db_change_detector: cache in-memory ativo — pulando queries.")
         return _LOCAL_CACHE["result"]
 
-    tables = _get_data_tables()
-    current = _count_rows(tables)
+    current = _get_row_estimates()
 
     previous = cache_service.get(_SNAPSHOT_KEY)
 

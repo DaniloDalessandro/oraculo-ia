@@ -437,6 +437,95 @@ def rules_detail(request, pk):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+def dashboard_stats(request):
+    """
+    GET /ai-agent/stats/
+
+    KPIs para o dashboard home: totais, PLR, berços e séries temporais.
+    """
+    import datetime
+    from django.db.models import Count, Avg, Sum
+    from django.db.models.functions import TruncMonth
+    from django.utils.timezone import now as tz_now
+    from ai_agent.models import Atracacao
+
+    try:
+        current_year = tz_now().year
+        twelve_months_ago = tz_now() - datetime.timedelta(days=365)
+
+        total_atracacoes = Atracacao.objects.count()
+
+        atracacoes_ano = Atracacao.objects.filter(
+            desatracacao__year=current_year
+        ).count()
+
+        plr_agg = Atracacao.objects.filter(
+            prancha__isnull=False, prancha__gt=0
+        ).aggregate(media=Avg("prancha"))
+        plr_medio = round(float(plr_agg["media"]), 1) if plr_agg["media"] else 0
+
+        bercos_ativos = (
+            Atracacao.objects.filter(berco__isnull=False)
+            .values("berco")
+            .distinct()
+            .count()
+        )
+
+        dwt_agg = Atracacao.objects.filter(dwt__isnull=False).aggregate(total=Sum("dwt"))
+        tonelagem_total = round(float(dwt_agg["total"]), 0) if dwt_agg["total"] else 0
+
+        por_mes_qs = (
+            Atracacao.objects.filter(
+                desatracacao__isnull=False,
+                desatracacao__gte=twelve_months_ago,
+            )
+            .annotate(mes=TruncMonth("desatracacao"))
+            .values("mes")
+            .annotate(total=Count("id"))
+            .order_by("mes")
+        )
+        atracacoes_por_mes = [
+            {
+                "mes": (
+                    item["mes"].strftime("%b/%y")
+                    if hasattr(item["mes"], "strftime")
+                    else str(item["mes"])[:7]
+                ),
+                "total": item["total"],
+            }
+            for item in por_mes_qs
+        ]
+
+        top_bercos_qs = (
+            Atracacao.objects.filter(berco__isnull=False)
+            .values("berco")
+            .annotate(total=Count("id"))
+            .order_by("-total")[:8]
+        )
+        top_bercos = [{"berco": item["berco"], "total": item["total"]} for item in top_bercos_qs]
+
+        return Response(
+            {
+                "total_atracacoes": total_atracacoes,
+                "atracacoes_ano": atracacoes_ano,
+                "ano": current_year,
+                "plr_medio": plr_medio,
+                "bercos_ativos": bercos_ativos,
+                "tonelagem_total": tonelagem_total,
+                "atracacoes_por_mes": atracacoes_por_mes,
+                "top_bercos": top_bercos,
+            }
+        )
+    except Exception as exc:
+        log_error("Erro ao calcular stats do dashboard", exc)
+        return Response(
+            {"error": "Erro ao calcular estatísticas."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def knowledge_meta(request):
     """Retorna as opções de choices para os formulários do frontend."""
     return Response({
@@ -453,3 +542,109 @@ def knowledge_meta(request):
             for k, v in PortBusinessRule.RULE_TYPE_CHOICES
         ],
     })
+
+
+# ─── Atracações CRUD ──────────────────────────────────────────────────────────
+
+import math as _math
+from django.db.models import Q as _Q
+from ai_agent.models import Atracacao
+from ai_agent.serializers import AtracacaoSerializer
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def atracacao_list(request):
+    if request.method == "GET":
+        qs = Atracacao.objects.all()
+
+        search = request.query_params.get("search", "").strip()
+        berco = request.query_params.get("berco", "").strip()
+        status_filter = request.query_params.get("status", "").strip()
+        ordering = request.query_params.get("ordering", "operacaomodalid")
+
+        if search:
+            qs = qs.filter(
+                _Q(navio__icontains=search)
+                | _Q(imo__icontains=search)
+                | _Q(berco__icontains=search)
+                | _Q(agencia__icontains=search)
+            )
+        if berco:
+            qs = qs.filter(berco=berco)
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        allowed_orderings = {
+            "operacaomodalid", "-operacaomodalid",
+            "navio", "-navio",
+            "berco", "-berco",
+            "atracacao", "-atracacao",
+            "desatracacao", "-desatracacao",
+            "dwt", "-dwt",
+        }
+        if ordering not in allowed_orderings:
+            ordering = "operacaomodalid"
+        qs = qs.order_by(ordering)
+
+        try:
+            page = max(1, int(request.query_params.get("page", 1)))
+            page_size = min(200, max(1, int(request.query_params.get("page_size", 50))))
+        except ValueError:
+            page, page_size = 1, 50
+
+        total = qs.count()
+        start = (page - 1) * page_size
+        items = qs[start: start + page_size]
+
+        bercos = list(
+            Atracacao.objects.filter(berco__isnull=False)
+            .exclude(berco="")
+            .values_list("berco", flat=True)
+            .distinct()
+            .order_by("berco")
+        )
+        statuses = list(
+            Atracacao.objects.filter(status__isnull=False)
+            .exclude(status="")
+            .values_list("status", flat=True)
+            .distinct()
+            .order_by("status")
+        )
+
+        return Response({
+            "results": AtracacaoSerializer(items, many=True).data,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": max(1, _math.ceil(total / page_size)),
+            "bercos": bercos,
+            "statuses": statuses,
+        })
+
+    serializer = AtracacaoSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def atracacao_detail(request, pk):
+    try:
+        obj = Atracacao.objects.get(pk=pk)
+    except Atracacao.DoesNotExist:
+        return Response({"error": "Não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET":
+        return Response(AtracacaoSerializer(obj).data)
+    if request.method == "DELETE":
+        obj.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    serializer = AtracacaoSerializer(obj, data=request.data, partial=request.method == "PATCH")
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

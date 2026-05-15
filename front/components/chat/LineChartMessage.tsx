@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts"
-import { CHART_COLORS, GRID_COLOR, TICK_COLOR } from "./chart-colors"
+import { CHART_COLORS, GRID_COLOR, TICK_COLOR, TOOLTIP_STYLE } from "./chart-colors"
 import type { ChartConfig } from "./types"
 
 interface Props {
@@ -37,15 +37,7 @@ export function LineChartMessage({ config }: Props) {
           axisLine={false}
           width={60}
         />
-        <Tooltip
-          contentStyle={{
-            fontSize: 12,
-            borderRadius: 8,
-            border: "1px solid hsl(var(--border))",
-            background: "hsl(var(--popover))",
-            color: "hsl(var(--popover-foreground))",
-          }}
-        />
+        <Tooltip contentStyle={TOOLTIP_STYLE} />
         {y_keys.length > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}
         {y_keys.map((key, i) => (
           <Line

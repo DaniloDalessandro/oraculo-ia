@@ -36,25 +36,87 @@ def is_followup(question: str) -> bool:
     return any(q.startswith(s) for s in _FOLLOWUP_STARTERS)
 
 
+_YEAR_RE = re.compile(r"\b(20\d{2})\b")
+_MONTH_RE = re.compile(
+    r"\b(janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro"
+    r"|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b",
+    re.IGNORECASE,
+)
+_BERCO_RE = re.compile(r"\bber[çc]o\s*(\d{1,3}[bB]?)\b", re.IGNORECASE)
+
+
+def _try_heuristic_resolve(question: str, history: List[Dict]) -> str | None:
+    """
+    Resolve follow-ups simples sem LLM usando substituição de entidades.
+    Cobre padrões como: "e em 2024?", "e no berço 105?", "e 2023?".
+    Retorna a pergunta resolvida ou None se o padrão não for reconhecível.
+    """
+    q = question.strip().lower()
+    recent_user = [h["text"] for h in history if h.get("role") == "user"]
+    if not recent_user:
+        return None
+    last_question = recent_user[-1]
+
+    # Padrão: só trocou o ano ("e em 2024?", "e 2023?", "2024?")
+    new_years = _YEAR_RE.findall(q)
+    if new_years and len(q) < 20:
+        old_years = _YEAR_RE.findall(last_question)
+        if old_years:
+            resolved = last_question
+            for y in old_years:
+                resolved = resolved.replace(y, new_years[-1])
+            logger.info("Memory: heurística resolveu ano: '%s' → '%s'", question[:40], resolved[:80])
+            return resolved
+
+    # Padrão: só trocou o mês ("e em março?", "e no mês de abril?")
+    new_months = _MONTH_RE.findall(q)
+    if new_months and len(q) < 30:
+        old_months = _MONTH_RE.findall(last_question)
+        if old_months:
+            resolved = re.sub(_MONTH_RE, new_months[-1], last_question, count=1)
+            logger.info("Memory: heurística resolveu mês: '%s' → '%s'", question[:40], resolved[:80])
+            return resolved
+
+    # Padrão: só trocou o berço ("e no berço 105?", "e o berço 103?")
+    new_bercos = _BERCO_RE.findall(q)
+    if new_bercos and len(q) < 30:
+        old_bercos = _BERCO_RE.findall(last_question)
+        if old_bercos:
+            resolved = re.sub(
+                re.compile(r"\bber[çc]o\s*" + re.escape(old_bercos[0]) + r"\b", re.IGNORECASE),
+                f"berço {new_bercos[-1]}",
+                last_question,
+            )
+            logger.info("Memory: heurística resolveu berço: '%s' → '%s'", question[:40], resolved[:80])
+            return resolved
+
+    return None
+
+
 def resolve_with_context(
     question: str,
     history: List[Dict],
 ) -> str:
     """
-    Se a pergunta for um follow-up, usa o LLM para reescrevê-la de forma
-    completa e autocontida com base no histórico.
+    Se a pergunta for um follow-up, tenta resolver via heurística rápida.
+    Só chama o LLM quando a heurística não consegue resolver.
 
     Args:
         question: Pergunta atual do usuário.
         history: Lista de {role: "user"|"assistant", text: str}.
 
     Returns:
-        Pergunta resolvida (ou a original se não for follow-up / LLM falhar).
+        Pergunta resolvida (ou a original se não for follow-up / falhar).
     """
     if not history or not is_followup(question):
         return question
 
-    # Usa apenas as últimas 3 trocas (6 mensagens) para manter custo baixo
+    # Fast path: heuristic handles common year/month/berco swaps without LLM
+    heuristic = _try_heuristic_resolve(question, history)
+    if heuristic:
+        return heuristic
+
+    # Slow path: LLM for complex follow-ups
     recent = history[-6:]
     history_text = "\n".join(
         f"{'Usuário' if h['role'] == 'user' else 'Assistente'}: {h['text']}"
@@ -83,7 +145,7 @@ def resolve_with_context(
         resolved = invoke_llm(messages).strip()
         if resolved and len(resolved) > 5:
             logger.info(
-                "Memory: follow-up resolvido: '%s' → '%s'",
+                "Memory: LLM resolveu follow-up: '%s' → '%s'",
                 question[:60], resolved[:80],
             )
             return resolved
