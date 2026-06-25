@@ -8,10 +8,12 @@ PyJWT==2.12.1
 sqlparse==0.5.3
 tzdata==2026.2
 
-# AI Agent
+# AI Agent — LangGraph + LangChain
+langgraph>=0.2
 langchain>=0.3
 langchain-core>=0.3
 langchain-openai>=0.2
+langchain-community>=0.3
 python-dotenv>=1.0
 
 # Cache & Memory
