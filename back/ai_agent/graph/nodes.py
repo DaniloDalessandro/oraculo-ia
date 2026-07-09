@@ -24,6 +24,7 @@ from ai_agent.services.llm_service import get_llm, get_structured_llm, invoke_ll
 from ai_agent.services.cache_service import cache_service
 from ai_agent.services.learning_service import learning_service
 from ai_agent.services.schema_service import schema_service
+from ai_agent.tools.schema_tool import schema_inspector_tool
 from ai_agent.services.memory_service import resolve_with_context, build_context_hint
 from ai_agent.tools.sql_executor_tool import sql_executor_tool, format_result_for_llm
 from ai_agent.tools.sql_validator_tool import sql_validator_tool
@@ -172,7 +173,7 @@ def load_context_node(state: dict) -> dict:
         return learning_service.get_user_preferences(user)
 
     def _schema():
-        return schema_service.introspect()
+        return schema_inspector_tool()
 
     def _port():
         return port_context_builder_tool(question)
@@ -358,6 +359,80 @@ def execute_sql_node(state: dict) -> dict:
 
     cache_sql_result(sql, result, state.get("intent", ""))
     return {"sql_result": result}
+
+
+def multi_agent_sql_node(state: dict) -> dict:
+    """
+    Substitui generate_sql_node + execute_sql_node como unidade quando
+    USE_MULTI_AGENT_SQL esta habilitado (ver graph.py). Um supervisor
+    (langgraph-supervisor) coordena os agentes entity_resolver e sql_writer.
+
+    Sucesso: {generated_sql, sql_validation, sql_result, entities_resolved,
+    sql_strategy: "multi_agent"}.
+    Falha: {status: "partial", error, final_answer, sql_strategy} — mesmo
+    contrato de falha de generate_sql_node/execute_sql_node, para
+    _route_after_execute_sql continuar funcionando sem alteracao.
+    Qualquer excecao cai para o caminho deterministico existente, marcado
+    como sql_strategy="multi_agent_fallback" para nao poluir a comparacao
+    A/B entre os dois caminhos.
+    """
+    question = state.get("resolved_question") or state["question"]
+    prefs = state.get("preferences") or {}
+
+    try:
+        from ai_agent.graph.multi_agent_sql import build_sql_supervisor, RECURSION_LIMIT
+
+        app, session = build_sql_supervisor(
+            question=question,
+            schema_text=state.get("schema_text", ""),
+            samples_text=state.get("samples_text", ""),
+            port_context=state.get("port_context", ""),
+            intent=state.get("intent", "listagem"),
+            prefs=prefs,
+            learning_hint=state.get("learning_hint", ""),
+        )
+
+        agent_result = app.invoke(
+            {"messages": [{"role": "user", "content": question}]},
+            config={"recursion_limit": RECURSION_LIMIT},
+        )
+
+        entities_text = ""
+        for msg in agent_result.get("messages", []):
+            content = getattr(msg, "content", "")
+            if isinstance(content, str) and "ENTIDADES RESOLVIDAS" in content:
+                entities_text = content
+
+        sql = session.get("sql", "")
+        result = session.get("result")
+
+        if not sql or not result or not result.get("success"):
+            msg = "O agente multiagente nao produziu uma consulta SQL valida."
+            mark_sql_failure(question)
+            return {"status": "partial", "error": msg, "final_answer": msg, "sql_strategy": "multi_agent"}
+
+        logger.info(
+            "[Graph] Multiagente concluiu SQL: %d chars, %d linhas",
+            len(sql), result.get("row_count", 0),
+        )
+
+        return {
+            "generated_sql": sql,
+            "sql_validation": session.get("validation", {}),
+            "sql_result": result,
+            "entities_resolved": {"raw_text": entities_text},
+            "sql_strategy": "multi_agent",
+        }
+
+    except Exception as exc:
+        logger.warning("[Graph] Pipeline multiagente falhou, usando fallback deterministico: %s", exc)
+        fallback = generate_sql_node(state)
+        fallback["sql_strategy"] = "multi_agent_fallback"
+        if fallback.get("status") == "partial":
+            return fallback
+
+        exec_result = execute_sql_node({**state, **fallback})
+        return {**fallback, **exec_result, "sql_strategy": "multi_agent_fallback"}
 
 
 def validate_result_node(state: dict) -> dict:
@@ -551,6 +626,13 @@ def build_chart_node(state: dict) -> dict:
         return {"chart": {"should_render": False}}
 
 
+def _clean_answer_formatting(text: str) -> str:
+    """Remove negrito/italico (*) e travessao (—) que a LLM insira apesar da instrucao do prompt."""
+    text = re.sub(r"\*+", "", text)
+    text = text.replace("—", ",")
+    return text
+
+
 def generate_answer_node(state: dict) -> dict:
     """Gera a resposta final usando LCEL: SystemMessage + prompt → LLM → StrOutputParser."""
     from langchain_core.output_parsers import StrOutputParser
@@ -592,6 +674,7 @@ def generate_answer_node(state: dict) -> dict:
             SystemMessage(content=SYSTEM_PROMPT),
             HumanMessage(content=prompt),
         ])
+        answer = _clean_answer_formatting(answer)
         logger.info("[Graph] Resposta gerada: %d chars", len(answer))
         return {"final_answer": answer, "status": "success"}
 

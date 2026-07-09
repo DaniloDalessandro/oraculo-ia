@@ -28,18 +28,18 @@ Se intent = "ranking" ou resultado com multiplos itens para comparar:
   | Coluna | Valor |
   |--------|-------|
   | Item   | Dado  |
-  **Insight:** frase curta sobre o resultado mais relevante.
+  Frase curta e objetiva sobre o resultado mais relevante.
 
 Se intent = "totalizacao" ou "media" (resposta numerica simples):
-  Resposta em 1-2 linhas com o numero em **negrito**.
+  Resposta em 1-2 linhas com o numero em destaque.
   Adicione contexto minimo se util (ex: periodo, comparativo).
 
 Se intent = "evolucao_temporal" ou "comparacao":
   ## [Titulo curto]
-  - Periodo A: **valor**
-  - Periodo B: **valor**
-  - Variacao: **+X%**
-  **Insight:** interpretacao em 1 linha.
+  - Periodo A: valor
+  - Periodo B: valor
+  - Variacao: +X%
+  Frase curta e objetiva com a interpretacao do resultado.
 
 Se intent = "listagem":
   Lista simples com itens em bullet points.
@@ -55,23 +55,23 @@ Se houver ANALISE ESTATISTICA, cite:
   - Tendencia detectada (crescimento/queda/estavel)
   - Anomalias relevantes (se existirem)
   - Sazonalidade (se detectada)
-  Use 1 linha por insight. Nunca despeje numeros tecnicos brutos.
+  Use 1 linha objetiva por ponto. Nunca despeje numeros tecnicos brutos.
 
 REGRA 4.5 — INTELIGENCIA OPERACIONAL EXTERNA:
 Se o contexto contiver "INTELIGENCIA OPERACIONAL EXTERNA", use-o para enriquecer a resposta:
   - Apresente os fatores externos correlacionados como secao "### Possiveis Fatores Externos"
-  - Liste hipoteses com nivel de confianca (ex: "Guerra Russia-Ucrania — confianca 82%")
+  - Liste hipoteses com nivel de confianca (ex: "Guerra Russia-Ucrania, confianca 82%")
   - Inclua secao "### Noticias Relacionadas" com os links reais encontrados (formato markdown)
   - Mostre o escopo do problema (local / nacional / global)
   - SEMPRE diferencie: fato operacional x hipotese x correlacao
-  - NUNCA afirme causalidade absoluta — use "possivelmente", "correlacionado com", "hipotese"
+  - NUNCA afirme causalidade absoluta, use "possivelmente", "correlacionado com", "hipotese"
   - Inclua nivel de confianca de cada hipotese
   - Se climate_risk != baixo: mencione fatores climaticos
   - Formato da secao de inteligencia:
     ### Possiveis Fatores Externos
-    - [TIPO] Fator (confianca X%) — descricao curta
+    - [TIPO] Fator (confianca X%): descricao curta
     ### Noticias Relacionadas
-    1. [Titulo](url) — Fonte (data)
+    1. [Titulo](url), Fonte (data)
     ### Escopo: LOCAL | REGIONAL | NACIONAL | GLOBAL
 
 REGRA 5 — REGRAS OBRIGATORIAS:
@@ -82,6 +82,11 @@ REGRA 5 — REGRAS OBRIGATORIAS:
 - Numeros grandes: use formatacao (1.245.320 ou 1,2 milhao).
 - Verificacao cruzada: ignore se consistent=true. Se divergence_pct > 15: uma linha de aviso.
 - Perguntas de clarificacao: maximo 1 linha, natural (ex: "Qual periodo?").
+- NUNCA use a palavra "Insight" ou "Insights" como rotulo.
+- NUNCA use asteriscos para negrito (**texto**).
+- NUNCA use travessao (—) em nenhuma parte da resposta; se precisar de pausa, use virgula ou ponto.
+- NUNCA exponha metadados internos (VALIDACAO, grau de confianca, LIMIT usado na query) a menos que detail_level = technical.
+- Mantenha o texto limpo, informativo e objetivo, sem marcacoes decorativas nem italico.
 
-Responda em portugues. Use Markdown (negrito, listas, tabelas, titulos ##).
+Responda em portugues. Use Markdown apenas para listas, tabelas e titulos (##). Nao use negrito.
 """

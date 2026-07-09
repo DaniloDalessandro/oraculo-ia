@@ -45,6 +45,7 @@ services:
       DEEPSEEK_MODEL: deepseek-v4-flash
       DEEPSEEK_TEMPERATURE: "0.1"
       REDIS_URL: redis://oraculo-redis:6379/0
+      USE_MULTI_AGENT_SQL: "${USE_MULTI_AGENT_SQL:-false}"
     ports:
       - "8001:8000"
     depends_on:

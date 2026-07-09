@@ -66,6 +66,8 @@ def run_agent(
         "generated_sql": "",
         "sql_validation": {},
         "sql_result": {},
+        "entities_resolved": {},
+        "sql_strategy": "",
         "result_validation": {},
         "cross_check": {"performed": False},
         "stat_analysis": {
@@ -184,6 +186,8 @@ def _build_response(state: dict[str, Any], elapsed_ms: int) -> dict[str, Any]:
             "intel_news_found": intel_analysis.get("news_found", 0),
             "intel_scope": intel_analysis.get("scope", ""),
             "intel_risk_level": intel_analysis.get("risk_level", ""),
+            "sql_strategy": state.get("sql_strategy", ""),
+            "entities_resolved": state.get("entities_resolved", {}),
         },
         "chart": state.get("chart", {"should_render": False}),
         "status": state.get("status", "error"),

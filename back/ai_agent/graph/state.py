@@ -43,6 +43,8 @@ class AgentState(TypedDict):
     generated_sql: str
     sql_validation: dict[str, Any]
     sql_result: dict[str, Any]
+    entities_resolved: dict[str, Any]
+    sql_strategy: str
 
     # ── Validação semântica + cross-check ─────────────────────────────────── #
     result_validation: dict[str, Any]

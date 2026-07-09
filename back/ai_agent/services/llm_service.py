@@ -43,6 +43,12 @@ def get_llm() -> ChatOpenAI:
         model=model,
         temperature=temperature,
         base_url="https://api.deepseek.com",
+        # Desabilita o "thinking mode" do DeepSeek: em loops multi-turno de tool-calling
+        # (create_react_agent / langgraph-supervisor) o modelo exige que o reasoning_content
+        # de cada turno anterior seja devolvido na proxima chamada, o que o LangChain nao faz
+        # automaticamente e gera erro 400 "reasoning_content must be passed back". O texto de
+        # raciocinio ja e descartado hoje (_THINK_RE em invoke_llm), entao desligar nao perde nada.
+        extra_body={"thinking": {"type": "disabled"}},
     )
 
 

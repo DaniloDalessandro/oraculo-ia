@@ -11,10 +11,12 @@ Fluxo:
     → load_context ──────────────────────────────────── [sem tabelas] → END
     → check_ambiguity ───────────────────────────────── [clarificação] → END
     → load_db_profile
-    → find_similar_sql
-    → generate_sql ──────────────────────────────────── [falha] → END
-    → execute_sql ───────────────────────────────────── [falha] → END
-    → validate_result
+    → find_similar_sql ───────── [USE_MULTI_AGENT_SQL=true] → multi_agent_sql ─┐
+                        └──────── [padrao]                  → generate_sql     │
+                                                                  ↓ [falha]→END │
+                                                              execute_sql       │
+                                                                  ↓ [falha]→END │
+    → validate_result ◄──────────────────────────────────────────────────────┘
     → cross_check (condicional: só se needs_cross_check=True)
     → analyze
     → build_chart
@@ -26,6 +28,7 @@ Fluxo:
 from __future__ import annotations
 
 import logging
+import os
 from typing import Literal
 
 from langgraph.graph import StateGraph, END, START
@@ -43,6 +46,7 @@ from ai_agent.graph.nodes import (
     find_similar_sql_node,
     generate_sql_node,
     execute_sql_node,
+    multi_agent_sql_node,
     validate_result_node,
     cross_check_node,
     analyze_node,
@@ -77,6 +81,11 @@ def _route_after_ambiguity(state: AgentState) -> Literal["load_db_profile", "__e
     if state.get("status") == "clarifying" or state.get("intent") == "clarification":
         return "__end__"
     return "load_db_profile"
+
+
+def _route_sql_strategy(state: AgentState) -> Literal["multi_agent_sql", "generate_sql"]:
+    use_multi_agent = os.environ.get("USE_MULTI_AGENT_SQL", "false").strip().lower() == "true"
+    return "multi_agent_sql" if use_multi_agent else "generate_sql"
 
 
 def _route_after_generate_sql(state: AgentState) -> Literal["execute_sql", "__end__"]:
@@ -114,6 +123,7 @@ def build_graph() -> StateGraph:
     graph.add_node("find_similar_sql",    find_similar_sql_node)
     graph.add_node("generate_sql",        generate_sql_node)
     graph.add_node("execute_sql",         execute_sql_node)
+    graph.add_node("multi_agent_sql",     multi_agent_sql_node)
     graph.add_node("validate_result",     validate_result_node)
     graph.add_node("cross_check",         cross_check_node)
     graph.add_node("analyze",             analyze_node)
@@ -127,7 +137,6 @@ def build_graph() -> StateGraph:
     graph.add_edge("detect_db_changes", "detect_save_intent")
     graph.add_edge("resolve_context",   "check_cache")
     graph.add_edge("load_db_profile",   "find_similar_sql")
-    graph.add_edge("find_similar_sql",  "generate_sql")
     graph.add_edge("cross_check",       "analyze")
     graph.add_edge("analyze",           "build_chart")
     graph.add_edge("build_chart",       "generate_answer")
@@ -141,8 +150,10 @@ def build_graph() -> StateGraph:
     graph.add_conditional_edges("check_cache",        _route_after_cache)
     graph.add_conditional_edges("load_context",       _route_after_load_context)
     graph.add_conditional_edges("check_ambiguity",    _route_after_ambiguity)
+    graph.add_conditional_edges("find_similar_sql",   _route_sql_strategy)
     graph.add_conditional_edges("generate_sql",       _route_after_generate_sql)
     graph.add_conditional_edges("execute_sql",        _route_after_execute_sql)
+    graph.add_conditional_edges("multi_agent_sql",    _route_after_execute_sql)
     graph.add_conditional_edges("validate_result",    _route_after_validate_result)
 
     compiled = graph.compile()
